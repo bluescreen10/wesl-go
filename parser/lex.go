@@ -47,7 +47,7 @@ const (
 	tokenImport
 	tokenAs
 	tokenSuper
-	tokenAtIf
+	tokenIfAnnot
 )
 
 const eof = -1
@@ -55,7 +55,7 @@ const eof = -1
 var key = map[string]tokenType{
 	"import": tokenImport,
 	"as":     tokenAs,
-	"@if":    tokenAtIf,
+	"@if":    tokenIfAnnot,
 	"super":  tokenSuper,
 }
 
