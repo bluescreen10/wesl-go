@@ -9,7 +9,6 @@ import (
 )
 
 type tree struct {
-	root *listNode
 }
 
 type parser struct {
@@ -113,42 +112,49 @@ func (p *parser) parseImportDecl() {
 }
 
 func (p *parser) parseImportPath(lineage string, allowSuper, allowBrace bool) {
-	switch tok := p.nextNonSpace(); {
-	case tok.typ == tokenLBrace && allowBrace:
-		p.parseImportList(lineage)
-		p.expect(tokenRBrace)
-	case tok.typ == tokenSuper:
-		if p.peek().typ != tokenDoubleColon || !allowSuper {
+	tok := p.nextNonSpace()
+
+	switch tok.typ {
+	case tokenLBrace:
+		if !allowBrace {
 			p.unexpected(tok)
 		}
-		p.next()
-		lineage += tok.val + "::"
-		p.parseImportPath(lineage, true, true)
-	case tok.typ == tokenIdent:
-		alias := tok
-		switch next := p.peekNonSpace(); next.typ {
-		case tokenDoubleColon:
-			p.next()
-			lineage += tok.val + "::"
-			p.parseImportPath(lineage, false, true)
-		case tokenAs:
+		p.parseImportList(lineage)
+		p.expect(tokenRBrace)
+
+	case tokenSuper:
+		if !allowSuper || p.peekNonSpace().typ != tokenDoubleColon {
+			p.unexpected(tok)
+		}
+		next := p.nextNonSpace()
+		p.parseImportPath(lineage+tok.val+next.val, true, true)
+
+	case tokenIdent:
+		alias := tok.val
+		next := p.peekNonSpace()
+
+		if next.typ == tokenDoubleColon {
 			p.nextNonSpace()
-			alias = p.nextNonSpace()
-			if alias.typ != tokenIdent {
-				p.unexpected(alias)
-			}
-			fallthrough
-		case tokenRBrace, tokenSemicolon, tokenComma:
-			i := &ast.ImportDecl{
+			p.parseImportPath(lineage+tok.val+next.val, false, true)
+			return
+		}
+
+		if next.typ == tokenAs {
+			p.nextNonSpace()
+			alias = p.expect(tokenIdent).val
+			next = p.peekNonSpace()
+		}
+
+		if next.typ == tokenRBrace || next.typ == tokenComma || next.typ == tokenSemicolon {
+			p.imports = append(p.imports, &ast.ImportDecl{
 				Symbol: tok.val,
 				Path:   lineage,
-				Alias:  alias.val,
-			}
-			p.imports = append(p.imports, i)
-			return
-		default:
+				Alias:  alias,
+			})
+		} else {
 			p.unexpected(next)
 		}
+
 	default:
 		p.unexpected(tok)
 	}
