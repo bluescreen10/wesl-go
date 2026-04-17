@@ -3,6 +3,8 @@ package wesl
 import (
 	"errors"
 	"sync"
+
+	"github.com/bluescreen10/wesl-go/parser"
 )
 
 type common struct {
@@ -33,7 +35,7 @@ func (t *Translator) init() {
 func (t *Translator) Parse(src string) (*Translator, error) {
 	// Instead of real parsing, let's just store the string and do string-manipulation in Translate.
 	// This ensures 100% whitespace preservation for the tests.
-	_, err := parse(src)
+	_, err := parser.Parse(src)
 	return t, err
 }
 

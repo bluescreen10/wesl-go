@@ -30,7 +30,7 @@ func TestImportSyntax(t *testing.T) {
 			got := err != nil
 
 			if test.Expected != got {
-				t.Errorf("parse (%s) expected (%v), got (%v)", test.Src, test.Expected, got)
+				t.Errorf("parse (%s) expected (%v), got (%v)\n%v", test.Src, test.Expected, got, err)
 			}
 		})
 	}

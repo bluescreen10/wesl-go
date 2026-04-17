@@ -1,4 +1,4 @@
-package wesl
+package parser
 
 type node interface {
 }

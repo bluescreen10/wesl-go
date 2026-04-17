@@ -1,4 +1,4 @@
-package wesl
+package parser
 
 import (
 	"fmt"
@@ -6,19 +6,19 @@ import (
 	"unicode/utf8"
 )
 
-type item struct {
-	typ itemType
+type token struct {
+	typ tokenType
 	pos int
 	val string
 }
 
-func (i item) String() string {
+func (i token) String() string {
 	switch {
-	case i.typ == itemEOF:
+	case i.typ == tokenEOF:
 		return "EOF"
-	case i.typ == itemError:
+	case i.typ == tokenError:
 		return i.val
-	case i.typ > itemComment:
+	case i.typ > tokenComment:
 		return fmt.Sprintf("<%s>", i.val)
 	case len(i.val) > 10:
 		return fmt.Sprintf("%.10q...", i.val)
@@ -26,29 +26,37 @@ func (i item) String() string {
 	return fmt.Sprintf("%q", i.val)
 }
 
-type itemType int
+type tokenType int
 
 const (
-	itemError itemType = iota
-	itemEOF
-	itemSpace
-	itemSep
-	itemNsSep
-	itemTypeSep
-	itemStmtSep
-	itemLeftDelim
-	itemRightDelim
-	itemComment
-	itemImport
-	itemIf
-	itemText
+	tokenError tokenType = iota
+	tokenEOF
+	tokenSpace
+	tokenComma
+	tokenDoubleColon
+	tokenColon
+	tokenSemicolon
+	tokenLBrace
+	tokenRBrace
+	tokenLParen
+	tokenRParen
+	tokenLBracket
+	tokenRBracket
+	tokenComment
+	tokenIdent
+	tokenImport
+	tokenAs
+	tokenSuper
+	tokenAtIf
 )
 
 const eof = -1
 
-var key = map[string]itemType{
-	"import": itemImport,
-	"@if":    itemIf,
+var key = map[string]tokenType{
+	"import": tokenImport,
+	"as":     tokenAs,
+	"@if":    tokenAtIf,
+	"super":  tokenSuper,
 }
 
 type stateFn func(*lexer) stateFn
@@ -57,7 +65,7 @@ type lexer struct {
 	input string
 	pos   int
 	start int
-	item  *item
+	token *token
 	line  int
 	atEOF bool
 }
@@ -69,15 +77,15 @@ func lex(input string) *lexer {
 	return l
 }
 
-func (l *lexer) nextItem() item {
-	l.item = nil
+func (l *lexer) nexttoken() token {
+	l.token = nil
 	state := lexDecl
 
 	for l.pos <= len(l.input) && state != nil {
 		state = state(l)
 	}
 
-	return *l.item
+	return *l.token
 }
 
 func (l *lexer) next() rune {
@@ -111,8 +119,8 @@ func (l *lexer) backup() {
 	l.atEOF = false
 }
 
-func (l *lexer) emit(typ itemType) stateFn {
-	l.item = &item{
+func (l *lexer) emit(typ tokenType) stateFn {
+	l.token = &token{
 		typ: typ,
 		pos: l.start,
 		val: l.input[l.start:l.pos],
@@ -122,8 +130,8 @@ func (l *lexer) emit(typ itemType) stateFn {
 }
 
 func (l *lexer) errorf(format string, args ...any) stateFn {
-	l.item = &item{
-		typ: itemError,
+	l.token = &token{
+		typ: tokenError,
 		pos: l.start,
 		val: fmt.Sprintf(format, args...),
 	}
@@ -136,7 +144,7 @@ func (l *lexer) errorf(format string, args ...any) stateFn {
 func lexDecl(l *lexer) stateFn {
 	switch r := l.next(); {
 	case r == eof:
-		l.emit(itemEOF)
+		l.emit(tokenEOF)
 		return nil
 	case isSpace(r):
 		l.backup()
@@ -144,17 +152,25 @@ func lexDecl(l *lexer) stateFn {
 	case r == ':':
 		if l.peek() == ':' {
 			l.next()
-			return l.emit(itemNsSep)
+			return l.emit(tokenDoubleColon)
 		}
-		return l.emit(itemTypeSep)
+		return l.emit(tokenColon)
 	case r == ',':
-		return l.emit(itemSep)
+		return l.emit(tokenComma)
 	case r == ';':
-		return l.emit(itemStmtSep)
+		return l.emit(tokenSemicolon)
 	case r == '{':
-		return l.emit(itemLeftDelim)
+		return l.emit(tokenLBrace)
 	case r == '}':
-		return l.emit(itemRightDelim)
+		return l.emit(tokenRBrace)
+	case r == '(':
+		return l.emit(tokenLParen)
+	case r == ')':
+		return l.emit(tokenRParen)
+	case r == '[':
+		return l.emit(tokenLBracket)
+	case r == ']':
+		return l.emit(tokenRBracket)
 	case r == '/':
 		if next := l.peek(); next == '/' || next == '*' {
 			l.backup()
@@ -166,7 +182,6 @@ func lexDecl(l *lexer) stateFn {
 		l.backup()
 		return lexIdent
 	default:
-		fmt.Println(l.input[l.start:])
 		return l.errorf("unrecognized character: %#U", r)
 	}
 }
@@ -196,7 +211,7 @@ func lexComment(l *lexer) stateFn {
 			}
 		}
 	}
-	return l.emit(itemComment)
+	return l.emit(tokenComment)
 }
 
 func lexIdent(l *lexer) stateFn {
@@ -210,7 +225,7 @@ func lexIdent(l *lexer) stateFn {
 			if typ, ok := key[word]; ok {
 				return l.emit(typ)
 			}
-			return l.emit(itemText)
+			return l.emit(tokenIdent)
 		}
 	}
 }
@@ -226,7 +241,7 @@ func lexSpace(l *lexer) stateFn {
 		l.next()
 	}
 
-	return l.emit(itemSpace)
+	return l.emit(tokenSpace)
 }
 
 func isAlphaNumeric(r rune) bool {
