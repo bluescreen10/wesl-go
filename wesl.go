@@ -2,6 +2,7 @@ package wesl
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/bluescreen10/wesl-go/parser"
@@ -41,6 +42,13 @@ func (t *Translator) New(name string) *Translator {
 	return &Translator{name: name, common: t.common}
 }
 
-func (t *Translator) Translate(src string, params map[string]bool) (string, error) {
+func (t *Translator) Translate(src string, defines map[string]bool) (string, error) {
+	ast, err := parser.Parse(src)
+	if err != nil {
+		return "", fmt.Errorf("error parsing source file: %v", err)
+	}
+
+	resolved := ResolveFile(ast, defines)
+	fmt.Println(resolved)
 	return "", errors.New("not implemented")
 }

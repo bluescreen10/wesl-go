@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -12,50 +13,88 @@ type tree struct {
 }
 
 type parser struct {
-	input     string
-	toks      [3]token
-	peekCount int
-	lex       *lexer
+	input         string
+	pos           int
+	toks          [3]token
+	peekCount     int
+	templateDepth int
 
-	imports []*ast.ImportDecl
+	lex *lexer
+
+	ast ast.File
+
+	buf []token //FIXME: remove
 }
 
-func Parse(input string) (*tree, error) {
+func Parse(input string) (*ast.File, error) {
 	p := &parser{input: input, lex: lex(input)}
-	tree, err := p.Parse()
-	return tree, err
+	return p.Parse()
 }
 
-func (p *parser) Parse() (t *tree, err error) {
+func (p *parser) Parse() (decls *ast.File, err error) {
 	defer func() {
 		if e := recover(); e != nil {
-			err = e.(error)
+			switch e := e.(type) {
+			case error:
+				err = e
+			case string:
+				err = errors.New(e)
+			default:
+				panic(e)
+			}
 		}
 	}()
-
-	p.parseGlobalDecl()
-	return nil, nil
-}
-
-func (p *parser) parseGlobalDecl() {
-	for {
-		tok := p.next()
-		switch tok.typ {
-		case tokenEOF:
-			return
-		case tokenError:
-			panic(tok.val)
-		case tokenImport:
-			p.parseImportDecl()
+	for !p.at(tokenEOF) {
+		decl := p.parseTopLevelDecl()
+		switch any(decl).(type) {
+		case []ast.ImportDecl:
+			p.ast.Imports = append(p.ast.Imports, decl.([]ast.ImportDecl)...)
+		default:
+			p.ast.Decls = append(p.ast.Decls, decl)
 		}
 	}
+	return &p.ast, nil
+}
+
+func (p *parser) parseTopLevelDecl() ast.Decl {
+	if p.at(tokenIfAttr) {
+		return p.parseIfAttrDecl()
+	}
+
+	attrs := p.parseAttributes()
+	tok := p.peekNonTrivia()
+	switch tok.typ {
+	case tokenDiagnostic:
+		return p.parseDiagnosticDirective(attrs)
+	case tokenEnable:
+		return p.parseEnableDirective(attrs)
+	case tokenRequires:
+		return p.parseRequiresDirective(attrs)
+	case tokenConstAssert:
+		return p.parseGlobalConstAssert(attrs)
+	case tokenStruct:
+		return p.parseStructDecl(attrs)
+	case tokenAlias:
+		return p.parseTypeAliasDecl(attrs)
+	case tokenVar:
+		return p.parseGlobalVariableDecl(attrs)
+	case tokenConst, tokenOverride:
+		return p.parseGlobalValueDecl(attrs)
+	case tokenFn:
+		return p.parseFnDecl(attrs)
+	case tokenImport:
+		return p.parseImportDecl()
+	default:
+		p.unexpected(tok)
+	}
+	panic("unreachable")
 }
 
 func (p *parser) next() token {
 	if p.peekCount > 0 {
 		p.peekCount--
 	} else {
-		p.toks[0] = p.lex.nexttoken()
+		p.toks[0] = p.lex.nextToken()
 	}
 	return p.toks[p.peekCount]
 }
@@ -65,12 +104,12 @@ func (p *parser) peek() token {
 		return p.toks[p.peekCount-1]
 	}
 	p.peekCount = 1
-	p.toks[0] = p.lex.nexttoken()
+	p.toks[0] = p.lex.nextToken()
 	return p.toks[0]
 }
 
-func (p *parser) peekNonSpace() token {
-	tok := p.nextNonSpace()
+func (p *parser) peekNonTrivia() token {
+	tok := p.nextNonTrivia()
 	p.backup()
 	return tok
 }
@@ -79,19 +118,24 @@ func (p *parser) backup() {
 	p.peekCount++
 }
 
-func (p *parser) nextNonSpace() token {
+func (p *parser) nextNonTrivia() token {
 	var tok token
 	for {
 		tok = p.next()
-		if tok.typ != tokenSpace {
+		if tok.typ != tokenSpace && tok.typ != tokenComment {
 			break
 		}
 	}
 	return tok
 }
 
+func (p *parser) at(typ tokenType) bool {
+	tok := p.peekNonTrivia()
+	return tok.typ == typ
+}
+
 func (p *parser) expect(expected tokenType) token {
-	tok := p.nextNonSpace()
+	tok := p.nextNonTrivia()
 	if tok.typ != expected {
 		p.unexpected(tok)
 	}
@@ -99,81 +143,11 @@ func (p *parser) expect(expected tokenType) token {
 }
 
 func (p *parser) expectOneOf(expected ...tokenType) token {
-	tok := p.nextNonSpace()
+	tok := p.nextNonTrivia()
 	if !slices.Contains(expected, tok.typ) {
 		p.unexpected(tok)
 	}
 	return tok
-}
-
-func (p *parser) parseImportDecl() {
-	p.parseImportPath("", true, true)
-	p.expect(tokenSemicolon)
-}
-
-func (p *parser) parseImportPath(lineage string, allowSuper, allowBrace bool) {
-	tok := p.nextNonSpace()
-
-	switch tok.typ {
-	case tokenLBrace:
-		if !allowBrace {
-			p.unexpected(tok)
-		}
-		p.parseImportList(lineage)
-		p.expect(tokenRBrace)
-
-	case tokenSuper:
-		if !allowSuper || p.peekNonSpace().typ != tokenDoubleColon {
-			p.unexpected(tok)
-		}
-		next := p.nextNonSpace()
-		p.parseImportPath(lineage+tok.val+next.val, true, true)
-
-	case tokenIdent:
-		alias := tok.val
-		next := p.peekNonSpace()
-
-		if next.typ == tokenDoubleColon {
-			p.nextNonSpace()
-			p.parseImportPath(lineage+tok.val+next.val, false, true)
-			return
-		}
-
-		if next.typ == tokenAs {
-			p.nextNonSpace()
-			alias = p.expect(tokenIdent).val
-			next = p.peekNonSpace()
-		}
-
-		if next.typ == tokenRBrace || next.typ == tokenComma || next.typ == tokenSemicolon {
-			p.imports = append(p.imports, &ast.ImportDecl{
-				Symbol: tok.val,
-				Path:   lineage,
-				Alias:  alias,
-			})
-		} else {
-			p.unexpected(next)
-		}
-
-	default:
-		p.unexpected(tok)
-	}
-}
-
-func (p *parser) parseImportList(lineage string) {
-	for {
-		p.parseImportPath(lineage, false, false)
-		tok := p.nextNonSpace()
-		switch tok.typ {
-		case tokenComma:
-			continue
-		case tokenRBrace:
-			p.backup()
-			return
-		default:
-			p.unexpected(tok)
-		}
-	}
 }
 
 func (p *parser) unexpected(tok token) {

@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -29,9 +30,12 @@ func (i token) String() string {
 type tokenType int
 
 const (
+	// special
 	tokenError tokenType = iota
 	tokenEOF
 	tokenSpace
+
+	// punctuation
 	tokenComma
 	tokenDoubleColon
 	tokenColon
@@ -42,21 +46,161 @@ const (
 	tokenRParen
 	tokenLBracket
 	tokenRBracket
+
+	// WGSL
 	tokenComment
 	tokenIdent
+	tokenAttr
+	tokenFn
+	tokenArrow
+	tokenDot
+	tokenTrue
+	tokenFalse
+	tokenNumber
+	tokenDiagnostic
+	tokenEnable
+	tokenRequires
+	tokenStruct
+	tokenAlias
+	tokenVar
+	tokenLet
+	tokenConst
+	tokenOverride
+	tokenUnderscore
+
+	//WGSL Flow Control
+	tokenLoop
+	tokenFor
+	tokenWhile
+	tokenBreak
+	tokenContinue
+	tokenContinuing
+	tokenDiscard
+	tokenIf
+	tokenElse
+	tokenReturn
+	tokenConstAssert
+	tokenSwitch
+	tokenCase
+	tokenDefault
+
+	//WGSL Asignment
+	tokenPlusEq
+	tokenMinusEq
+	tokenStarEq
+	tokenSlashEq
+	tokenPercentEq
+	tokenAmpEq
+	tokenPipeEq
+	tokenCaretEq
+	tokenLtLtEq
+	tokenGtGtEq
+
+	// Operators
+	tokenPipePipe
+	tokenAmpAmp
+	tokenPlusPlus
+	tokenMinusMinus
+	tokenPipe
+	tokenCaret
+	tokenAmp
+	tokenEqualEqual
+	tokenBangEqual
+	tokenBang
+	tokenLAngle
+	tokenRAngle
+	tokenLtEqual
+	tokenGtEqual
+	tokenLtLt
+	tokenGtGt
+	tokenPlus
+	tokenMinus
+	tokenStar
+	tokenSlash
+	tokenPercent
+	tokenTilde
+	tokenEqual
+
+	// Wesl
 	tokenImport
 	tokenAs
 	tokenSuper
-	tokenIfAnnot
+	tokenIfAttr
+	tokenElseAttr
 )
 
 const eof = -1
 
 var key = map[string]tokenType{
-	"import": tokenImport,
-	"as":     tokenAs,
-	"@if":    tokenIfAnnot,
-	"super":  tokenSuper,
+	"import":       tokenImport,
+	"as":           tokenAs,
+	"super":        tokenSuper,
+	"fn":           tokenFn,
+	"true":         tokenTrue,
+	"false":        tokenFalse,
+	"diagnostic":   tokenDiagnostic,
+	"enable":       tokenEnable,
+	"requires":     tokenRequires,
+	"struct":       tokenStruct,
+	"alias":        tokenAlias,
+	"var":          tokenVar,
+	"let":          tokenLet,
+	"const":        tokenConst,
+	"override":     tokenOverride,
+	"loop":         tokenLoop,
+	"for":          tokenFor,
+	"while":        tokenWhile,
+	"if":           tokenIf,
+	"else":         tokenElse,
+	"return":       tokenReturn,
+	"continue":     tokenContinue,
+	"continuing":   tokenContinuing,
+	"discard":      tokenDiscard,
+	"const_assert": tokenConstAssert,
+	"_":            tokenUnderscore,
+	"switch":       tokenSwitch,
+	"case":         tokenCase,
+	"default":      tokenDefault,
+}
+
+var attr = map[string]tokenType{
+	"@if":   tokenIfAttr,
+	"@else": tokenElseAttr,
+}
+
+var operators = map[string]tokenType{
+	"||":  tokenPipePipe,
+	"&&":  tokenAmpAmp,
+	"++":  tokenPlusPlus,
+	"--":  tokenMinusMinus,
+	"|":   tokenPipe,
+	"^":   tokenCaret,
+	"&":   tokenAmp,
+	"==":  tokenEqualEqual,
+	"!=":  tokenBangEqual,
+	"<":   tokenLAngle,
+	">":   tokenRAngle,
+	"<=":  tokenLtEqual,
+	">=":  tokenGtEqual,
+	"<<":  tokenLtLt,
+	">>":  tokenGtGt,
+	"+":   tokenPlus,
+	"-":   tokenMinus,
+	"*":   tokenStar,
+	"/":   tokenSlash,
+	"%":   tokenPercent,
+	"!":   tokenBang,
+	"=":   tokenEqual,
+	"+=":  tokenPlusEq,
+	"-=":  tokenMinusEq,
+	"*=":  tokenStarEq,
+	"/=":  tokenSlashEq,
+	"%=":  tokenPercentEq,
+	"&=":  tokenAmpEq,
+	"|=":  tokenPipeEq,
+	"^=":  tokenCaretEq,
+	"<<=": tokenLtLtEq,
+	">>=": tokenGtGtEq,
 }
 
 type stateFn func(*lexer) stateFn
@@ -77,7 +221,7 @@ func lex(input string) *lexer {
 	return l
 }
 
-func (l *lexer) nexttoken() token {
+func (l *lexer) nextToken() token {
 	l.token = nil
 	state := lexDecl
 
@@ -117,6 +261,20 @@ func (l *lexer) backup() {
 	}
 
 	l.atEOF = false
+}
+
+func (l *lexer) accept(valid string) bool {
+	if strings.ContainsRune(valid, l.next()) {
+		return true
+	}
+	l.backup()
+	return false
+}
+
+func (l *lexer) acceptRun(valid string) {
+	for strings.ContainsRune(valid, l.next()) {
+	}
+	l.backup()
 }
 
 func (l *lexer) emit(typ tokenType) stateFn {
@@ -159,6 +317,8 @@ func lexDecl(l *lexer) stateFn {
 		return l.emit(tokenComma)
 	case r == ';':
 		return l.emit(tokenSemicolon)
+	case r == '.':
+		return l.emit(tokenDot)
 	case r == '{':
 		return l.emit(tokenLBrace)
 	case r == '}':
@@ -172,17 +332,82 @@ func lexDecl(l *lexer) stateFn {
 	case r == ']':
 		return l.emit(tokenRBracket)
 	case r == '/':
-		if next := l.peek(); next == '/' || next == '*' {
-			l.backup()
+		next := l.peek()
+		if next == '/' || next == '*' {
 			l.backup()
 			return lexComment
 		}
 		return l.errorf("unexpected character: %#U", r)
+	case r == '@':
+		next := l.peek()
+		if isAlphaNumeric(next) {
+			l.backup()
+			return lexAttribute
+		}
+		return l.errorf("unexpected character: %#U", r)
+	case r == '+' || r == '-':
+		next := l.peek()
+		l.backup()
+		if isNumber(next) {
+			return lexNumber
+		} else {
+			return lexOperator
+		}
+	case isNumber(r):
+		l.backup()
+		return lexNumber
+	case isOperator(r):
+		l.backup()
+		return lexOperator
 	case isAlphaNumeric(r):
 		l.backup()
 		return lexIdent
 	default:
 		return l.errorf("unrecognized character: %#U", r)
+	}
+}
+
+func lexNumber(l *lexer) stateFn {
+	digits := "0123456789"
+
+	l.accept("+-")
+
+	if l.accept("0") {
+		if l.accept("xX") {
+			digits = "0123456789abcdefABCDEF"
+		}
+	}
+	l.acceptRun(digits)
+	if l.accept(".") {
+		l.acceptRun(digits)
+	}
+	if len(digits) == 10+1 && l.accept("eE") {
+		l.accept("+-")
+		l.acceptRun("0123456789")
+	}
+
+	l.acceptRun("iuhf")
+
+	if isAlphaNumeric(l.peek()) {
+		l.next()
+		return l.errorf("bad number syntax: %q", l.input[l.start:l.pos])
+	}
+	return l.emit(tokenNumber)
+}
+
+func lexOperator(l *lexer) stateFn {
+	for {
+		switch r := l.next(); {
+		case isOperator(r):
+			// consume it
+		default:
+			l.backup()
+			word := l.input[l.start:l.pos]
+			if typ, ok := operators[word]; ok {
+				return l.emit(typ)
+			}
+			return l.errorf("unrecognized operator: %s", word)
+		}
 	}
 }
 
@@ -202,6 +427,7 @@ func lexComment(l *lexer) stateFn {
 	} else {
 		// comment block
 		for {
+			//FIXME: WGSL allows nested comments
 			r = l.next()
 			if r == '*' {
 				if l.peek() == '/' {
@@ -230,6 +456,24 @@ func lexIdent(l *lexer) stateFn {
 	}
 }
 
+func lexAttribute(l *lexer) stateFn {
+	l.next()
+
+	for {
+		switch r := l.next(); {
+		case isAlphaNumeric(r):
+
+		default:
+			l.backup()
+			word := l.input[l.start:l.pos]
+			if typ, ok := attr[word]; ok {
+				return l.emit(typ)
+			}
+			return l.emit(tokenAttr)
+		}
+	}
+}
+
 func lexSpace(l *lexer) stateFn {
 	var r rune
 
@@ -245,7 +489,7 @@ func lexSpace(l *lexer) stateFn {
 }
 
 func isAlphaNumeric(r rune) bool {
-	return r == '@' || r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r)
+	return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r)
 }
 
 func isSpace(r rune) bool {
@@ -254,4 +498,24 @@ func isSpace(r rune) bool {
 
 func isNewline(r rune) bool {
 	return r == -1 || r == '\n'
+}
+
+func isOperator(r rune) bool {
+	return r == '-' ||
+		r == '+' ||
+		r == '<' ||
+		r == '>' ||
+		r == '=' ||
+		r == '!' ||
+		r == '/' ||
+		r == '%' ||
+		r == '|' ||
+		r == '%' ||
+		r == '*' ||
+		r == '^' ||
+		r == '~'
+}
+
+func isNumber(r rune) bool {
+	return ('0' <= r && r <= '9')
 }
