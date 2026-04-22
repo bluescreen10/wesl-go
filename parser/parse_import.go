@@ -21,6 +21,13 @@ func (p *parser) parseImportPath(lineage string, allowSuper, allowBrace bool) []
 		p.expect(tokenRBrace)
 		return decls
 
+	case tokenPackage:
+		if !allowSuper || p.peekNonTrivia().typ != tokenDoubleColon {
+			p.unexpected(tok)
+		}
+		next := p.nextNonTrivia()
+		return p.parseImportPath(lineage+tok.val+next.val, true, true)
+
 	case tokenSuper:
 		if !allowSuper || p.peekNonTrivia().typ != tokenDoubleColon {
 			p.unexpected(tok)

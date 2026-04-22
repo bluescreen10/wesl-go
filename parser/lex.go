@@ -125,6 +125,7 @@ const (
 	tokenImport
 	tokenAs
 	tokenSuper
+	tokenPackage
 	tokenIfAttr
 	tokenElseAttr
 )
@@ -135,6 +136,7 @@ var key = map[string]tokenType{
 	"import":       tokenImport,
 	"as":           tokenAs,
 	"super":        tokenSuper,
+	"package":      tokenPackage,
 	"fn":           tokenFn,
 	"true":         tokenTrue,
 	"false":        tokenFalse,

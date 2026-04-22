@@ -186,6 +186,20 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 		inner := p.parseExpression()
 		p.expect(tokenRParen)
 		return &ast.ParenExpr{Inner: inner}
+	case tokenPackage, tokenSuper:
+		ident := t.val
+		p.expect(tokenDoubleColon)
+		for p.at(tokenIdent) {
+			tok := p.nextNonTrivia()
+			ident += "::" + tok.val
+			if p.at(tokenDoubleColon) {
+				p.nextNonTrivia()
+			}
+		}
+		if p.at(tokenLParen) {
+			return &ast.CallExpr{Callee: ident, Args: p.parseArgumentExpressionList()}
+		}
+		return &ast.Ident{Name: ident}
 
 	case tokenIdent:
 		if isTemplateableIdent(t.val) && p.at(tokenLAngle) {

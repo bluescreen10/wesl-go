@@ -113,7 +113,7 @@ func (p *parser) parseStatementBody(attrs []ast.Attribute) ast.Stmt {
 	// Identifiers, '*', '&', '(' can start either a func_call_statement or a
 	// variable_updating_statement.  Parse the LHS / call expression first, then
 	// decide based on what follows.
-	case tokenIdent, tokenStar, tokenAmp, tokenLParen:
+	case tokenIdent, tokenStar, tokenAmp, tokenLParen, tokenPackage, tokenSuper:
 		s := p.parseExpressionStatement(attrs)
 		p.expect(tokenSemicolon)
 		return s
