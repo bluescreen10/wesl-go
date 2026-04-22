@@ -34,7 +34,7 @@ func (p *parser) parseStatementBody(attrs []ast.Attribute) ast.Stmt {
 
 	switch t.typ {
 	case tokenIfAttr:
-		return p.parseIfAttribute()
+		return p.parseIfAttrStmt()
 	// ';'
 	case tokenSemicolon:
 		p.nextNonTrivia()
@@ -151,7 +151,7 @@ func (p *parser) parseBreakOrBreakIf(attrs []ast.Attribute) ast.Stmt {
 	p.expect(tokenBreak)
 
 	// 'break' followed by 'if' → break_if_statement.
-	if p.peekNonTrivia().typ == tokenIf || p.peekNonTrivia().val == "if" {
+	if p.peekNonTrivia().typ == tokenIf {
 		p.nextNonTrivia() // consume 'if'
 		cond := p.parseExpression()
 		return &ast.BreakIfStmt{Attrs: attrs, Cond: cond}
@@ -218,53 +218,35 @@ func (p *parser) parseBlankAssignment(attrs []ast.Attribute) *ast.AssignmentStmt
 //
 // The trailing ';' is consumed by the caller.
 func (p *parser) parseExpressionStatement(attrs []ast.Attribute) ast.Stmt {
-	// We need to decide between call-phrase and lhs-expression upfront.
-	// Strategy: if the first non-space token is an ident and is followed by
-	// '(' or a template+call, parse as a call phrase directly; otherwise parse
-	// as an lhs expression.
+	// Parse as a postfix expression — this covers both call phrases
+	// (foo(), vec3<f32>(...)) and lhs expressions (x, a[i], p.m).
+	// No lookahead needed upfront; we dispatch purely on what follows.
+	expr := p.parsePostfixExpr()
 
-	if p.peekNonTrivia().typ == tokenIdent {
-		name := p.nextNonTrivia() // consume ident — 1 token
-		next := p.peekNonTrivia() // peek 1 token — O(1)
-
-		isCall := next.typ == tokenLParen ||
-			(isTemplateableIdent(name.val) && next.typ == tokenLAngle)
-
-		p.backup() // put ident back
-
-		if isCall {
-			call := p.parseCallPhrase()
-			return &ast.FuncCallStmt{Attrs: attrs, Call: call}
-		}
-	}
-
-	// All other cases start with an lhs_expression.
-	lhs := p.parseLhsExpression()
-
-	next := p.peekNonTrivia()
-
-	switch next.typ {
+	switch p.peekNonTrivia().typ {
 	case tokenPlusPlus:
 		p.nextNonTrivia()
-		return &ast.IncrementStmt{Attrs: attrs, LHS: lhs}
+		return &ast.IncrementStmt{Attrs: attrs, LHS: expr}
 
 	case tokenMinusMinus:
 		p.nextNonTrivia()
-		return &ast.DecrementStmt{Attrs: attrs, LHS: lhs}
+		return &ast.DecrementStmt{Attrs: attrs, LHS: expr}
 
 	case tokenEqual:
 		p.nextNonTrivia()
-		rhs := p.parseExpression()
-		return &ast.AssignmentStmt{Attrs: attrs, LHS: lhs, Op: "=", RHS: rhs}
+		return &ast.AssignmentStmt{Attrs: attrs, LHS: expr, Op: "=", RHS: p.parseExpression()}
 
 	default:
 		if op, ok := p.isCompoundAssignOp(); ok {
 			p.nextNonTrivia()
-			rhs := p.parseExpression()
-			return &ast.AssignmentStmt{Attrs: attrs, LHS: lhs, Op: op, RHS: rhs}
+			return &ast.AssignmentStmt{Attrs: attrs, LHS: expr, Op: op, RHS: p.parseExpression()}
 		}
-		p.unexpected(next)
-		return nil
+		// If none of the above matched, expr must be a call.
+		call, ok := expr.(*ast.CallExpr)
+		if !ok {
+			p.unexpected(p.peekNonTrivia())
+		}
+		return &ast.FuncCallStmt{Attrs: attrs, Call: *call}
 	}
 }
 
@@ -293,7 +275,8 @@ func (p *parser) parseVarOrValueStatement(attrs []ast.Attribute) *ast.VarOrValue
 	switch t.typ {
 	case tokenVar:
 		decl := p.parseVariableDecl(attrs)
-		stmt := &ast.VarOrValueStmt{Attrs: attrs, Keyword: "var", Decl: &decl}
+		//FIXME: Adding keyword "var" generates "var var"
+		stmt := &ast.VarOrValueStmt{Attrs: attrs, Keyword: "", Decl: &decl}
 		if p.at(tokenEqual) {
 			p.nextNonTrivia()
 			stmt.Init = p.parseExpression()
@@ -356,6 +339,19 @@ func (p *parser) parseCompoundStatement(attrs []ast.Attribute) *ast.CompoundStmt
 //	attribute* 'case' case_selectors ':'? compound_statement
 //
 // Leading attrs must have been consumed by the caller.
+func (p *parser) parseSwitchClause(attrs []ast.Attribute) ast.SwitchClause {
+	tok := p.peekNonTrivia()
+	switch tok.typ {
+	case tokenCase:
+		return p.parseCaseClause(attrs)
+	case tokenDefault:
+		return p.parseDefaultAloneClause(attrs)
+	default:
+		p.unexpected(tok)
+	}
+	panic("unreachable")
+}
+
 func (p *parser) parseCaseClause(attrs []ast.Attribute) *ast.CaseClause {
 	p.expect(tokenCase)
 	selectors := p.parseCaseSelectors()
@@ -379,6 +375,22 @@ func (p *parser) parseDefaultAloneClause(attrs []ast.Attribute) *ast.DefaultAlon
 	}
 	body := p.parseCompoundStatement(nil)
 	return &ast.DefaultAloneClause{Attrs: attrs, Body: body}
+}
+
+func (p *parser) parseIfAttrClause() *ast.IfAttrClause {
+	p.expect(tokenIfAttr)
+	cond := p.parseExpression()
+	attrs := p.parseAttributes()
+	then := p.parseSwitchClause(attrs)
+
+	node := &ast.IfAttrClause{Cond: cond, Then: then}
+	if p.at(tokenElseAttr) {
+		p.expect(tokenElseAttr)
+		attrs := p.parseAttributes()
+		els := p.parseSwitchClause(attrs)
+		node.Else = els
+	}
+	return node
 }
 
 // parseCaseSelectors parses the comma-separated list of case expressions:
@@ -445,17 +457,15 @@ func (p *parser) parseSwitchStatement(attrs []ast.Attribute) *ast.SwitchStmt {
 	_ = p.parseAttributes()
 
 	p.expect(tokenLBrace)
-	var clauses []ast.Node
+	var clauses []ast.SwitchClause
 	for !p.at(tokenRBrace) {
 		clauseAttrs := p.parseAttributes()
 		t := p.peekNonTrivia()
 		switch t.typ {
-		case tokenCase:
-			clauses = append(clauses, p.parseCaseClause(clauseAttrs))
-		case tokenDefault:
-			clauses = append(clauses, p.parseDefaultAloneClause(clauseAttrs))
+		case tokenIfAttr:
+			clauses = append(clauses, p.parseIfAttrClause())
 		default:
-			p.unexpected(t)
+			clauses = append(clauses, p.parseSwitchClause(clauseAttrs))
 		}
 	}
 	p.expect(tokenRBrace)
@@ -471,7 +481,6 @@ func (p *parser) parseLoopStatement(attrs []ast.Attribute) *ast.LoopStmt {
 	p.expect(tokenLBrace)
 
 	var stmts []ast.Stmt
-	var cont *ast.ContinuingStmt
 
 	for !p.at(tokenRBrace) {
 		if p.at(tokenEOF) {
@@ -479,14 +488,14 @@ func (p *parser) parseLoopStatement(attrs []ast.Attribute) *ast.LoopStmt {
 		}
 		// A continuing statement ends the loop body.
 		innerAttrs := p.parseAttributes()
-		if p.at(tokenContinuing) {
-			cont = p.parseContinuingStatement(innerAttrs)
-			break
-		}
+		// if p.at(tokenContinuing) {
+		// 	cont = p.parseContinuingStatement(innerAttrs)
+		// 	break
+		// }
 		stmts = append(stmts, p.parseStatementBody(innerAttrs))
 	}
 	p.expect(tokenRBrace)
-	return &ast.LoopStmt{Attrs: attrs, BodyAttrs: bodyAttrs, Body: &ast.CompoundStmt{Stmts: stmts}, Continuing: cont}
+	return &ast.LoopStmt{Attrs: attrs, BodyAttrs: bodyAttrs, Body: &ast.CompoundStmt{Stmts: stmts}}
 }
 
 // parseForStatement parses:

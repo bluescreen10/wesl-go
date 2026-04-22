@@ -133,10 +133,13 @@ func (p *parser) parseIfAttrStructField() ast.IfAttrStructField {
 	then := p.parseStructField()
 
 	node := ast.IfAttrStructField{Cond: cond, Then: then}
-	if p.at(tokenElseAttr) {
-		p.nextNonTrivia() // consume @else token
-		els := p.parseStructField()
-		node.Else = &els
+	if p.at(tokenComma) {
+		p.nextNonTrivia()
+		if p.at(tokenElseAttr) {
+			p.nextNonTrivia() // consume @else token
+			els := p.parseStructField()
+			node.Else = &els
+		}
 	}
 	return node
 }
@@ -221,8 +224,8 @@ func (p *parser) parseGlobalValueDecl(attrs []ast.Attribute) *ast.GlobalValueDec
 	return gvd
 }
 
-func (p *parser) parseGlobalConstAssert(attrs []ast.Attribute) *ast.ConstAssertStmt {
+func (p *parser) parseGlobalConstAssert(attrs []ast.Attribute) *ast.ConstAssertDecl {
 	stmt := p.parseConstAssertStatement(attrs)
 	p.expect(tokenSemicolon)
-	return stmt
+	return &ast.ConstAssertDecl{Assert: stmt}
 }

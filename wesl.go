@@ -1,7 +1,7 @@
 package wesl
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -43,12 +43,17 @@ func (t *Translator) New(name string) *Translator {
 }
 
 func (t *Translator) Translate(src string, defines map[string]bool) (string, error) {
+	if src == "@if(false) fn f() -> u32 { return 1; } @else fn f() -> u32 { return 2; } fn main() -> u32 { return f(); }" {
+		fmt.Println("here")
+	}
+
 	ast, err := parser.Parse(src)
 	if err != nil {
 		return "", fmt.Errorf("error parsing source file: %v", err)
 	}
 
 	resolved := ResolveFile(ast, defines)
-	fmt.Println(resolved)
-	return "", errors.New("not implemented")
+	var buf bytes.Buffer
+	resolved.Emit(&buf)
+	return buf.String(), nil
 }

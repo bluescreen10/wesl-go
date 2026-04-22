@@ -48,7 +48,7 @@ func (p *parser) Parse() (decls *ast.File, err error) {
 		decl := p.parseTopLevelDecl()
 		switch any(decl).(type) {
 		case []ast.ImportDecl:
-			p.ast.Imports = append(p.ast.Imports, decl.([]ast.ImportDecl)...)
+			p.ast.Imports = append(p.ast.Imports, decl.(ast.ImportsDecl)...)
 		default:
 			p.ast.Decls = append(p.ast.Decls, decl)
 		}

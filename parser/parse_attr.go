@@ -18,7 +18,7 @@ func (p *parser) parseAttribute() ast.Attribute {
 
 	// switch tok.typ {
 	// case tokenIfAttr:
-	// 	attr := p.parseIfAttribute()
+	// 	attr := p.parseIfAttrStmt()
 	// 	attr.Then = p.parseStatement()
 	// 	if p.peekNonTrivia().typ == tokenElseAttr {
 	// 		attr.Else = p.parseStatement()
@@ -45,7 +45,7 @@ func (p *parser) parseAttributeExpressionList() []ast.Expr {
 	p.expect(tokenLParen)
 
 	var args []ast.Expr
-	for !p.at(tokenLParen) {
+	for !p.at(tokenRParen) {
 		if len(args) > 0 {
 			p.expect(tokenComma)
 			continue
@@ -71,7 +71,7 @@ func (p *parser) parseIfAttrDecl() *ast.IfAttrDecl {
 	return node
 }
 
-func (p *parser) parseIfAttribute() *ast.IfAttrStmt {
+func (p *parser) parseIfAttrStmt() *ast.IfAttrStmt {
 	p.expect(tokenIfAttr)
 	p.expect(tokenLParen)
 	cond := p.parseExpression()

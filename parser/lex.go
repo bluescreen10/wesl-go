@@ -153,6 +153,7 @@ var key = map[string]tokenType{
 	"if":           tokenIf,
 	"else":         tokenElse,
 	"return":       tokenReturn,
+	"break":        tokenBreak,
 	"continue":     tokenContinue,
 	"continuing":   tokenContinuing,
 	"discard":      tokenDiscard,
@@ -201,6 +202,7 @@ var operators = map[string]tokenType{
 	"^=":  tokenCaretEq,
 	"<<=": tokenLtLtEq,
 	">>=": tokenGtGtEq,
+	"->":  tokenArrow,
 }
 
 type stateFn func(*lexer) stateFn
@@ -513,7 +515,8 @@ func isOperator(r rune) bool {
 		r == '%' ||
 		r == '*' ||
 		r == '^' ||
-		r == '~'
+		r == '~' ||
+		r == '&'
 }
 
 func isNumber(r rune) bool {

@@ -2,7 +2,7 @@ package parser
 
 import "github.com/bluescreen10/wesl-go/ast"
 
-func (p *parser) parseImportDecl() []ast.ImportDecl {
+func (p *parser) parseImportDecl() ast.ImportsDecl {
 	p.expect(tokenImport)
 	decl := p.parseImportPath("", true, true)
 	p.expect(tokenSemicolon)

@@ -10,33 +10,28 @@ func (p *parser) parseFnDecl(attrs []ast.Attribute) *ast.FnDecl {
 	var params []ast.Param
 
 	for !p.at(tokenRParen) {
-		if len(params) > 0 {
-			p.expect(tokenComma)
-			continue
+		if p.at(tokenIfAttr) {
+			params = append(params, p.parseIfAttrParam())
+		} else {
+			params = append(params, p.parseParam())
 		}
-
-		paramAttrs := p.parseAttributes()
-		paramName := p.expect(tokenIdent)
-		paramType := p.parseTypeSpecifier()
-		param := ast.Param{
-			Name:  paramName.val,
-			Type:  paramType,
-			Attrs: paramAttrs,
+		if p.at(tokenComma) {
+			p.nextNonTrivia()
 		}
-		params = append(params, param)
 	}
 
 	p.expect(tokenRParen)
 
 	var retAttrs []ast.Attribute
-	var retType ast.TypeSpecifier
+	var retType *ast.TypeSpecifier
 	if p.at(tokenArrow) {
 		p.nextNonTrivia()
 		retAttrs = p.parseAttributes()
-		retType = p.parseTypeSpecifier()
+		typ := p.parseTypeSpecifier()
+		retType = &typ
 	}
 
-	p.parseCompoundStatement(nil)
+	body := p.parseCompoundStatement(nil)
 
 	return &ast.FnDecl{
 		Attrs:       attrs,
@@ -44,6 +39,32 @@ func (p *parser) parseFnDecl(attrs []ast.Attribute) *ast.FnDecl {
 		Params:      params,
 		ReturnAttrs: retAttrs,
 		ReturnType:  retType,
-		Body:        nil,
+		Body:        body,
+	}
+}
+
+func (p *parser) parseIfAttrParam() ast.IfAttrParam {
+	p.nextNonTrivia() // consume @if token
+	cond := p.parseExpression()
+	then := p.parseParam()
+
+	node := ast.IfAttrParam{Cond: cond, Then: then}
+	if p.at(tokenElseAttr) {
+		p.nextNonTrivia() // consume @else token
+		els := p.parseParam()
+		node.Else = &els
+	}
+	return node
+}
+
+func (p *parser) parseParam() ast.FnParam {
+	paramAttrs := p.parseAttributes()
+	paramName := p.expect(tokenIdent)
+	p.expect(tokenColon)
+	paramType := p.parseTypeSpecifier()
+	return ast.FnParam{
+		Name:  paramName.val,
+		Type:  paramType,
+		Attrs: paramAttrs,
 	}
 }

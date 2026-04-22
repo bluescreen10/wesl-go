@@ -43,9 +43,21 @@ func resolveDecl(d ast.Decl, defines map[string]bool) ast.Decl {
 
 // resolveFnDecl resolves @if nodes inside a function body.
 func resolveFnDecl(d *ast.FnDecl, defines map[string]bool) *ast.FnDecl {
-	out := *d // shallow copy
+	out := &ast.FnDecl{Attrs: d.Attrs, Name: d.Name, ReturnAttrs: d.ReturnAttrs, ReturnType: d.ReturnType}
+	for _, p := range d.Params {
+		switch p := p.(type) {
+		case ast.IfAttrParam:
+			if evalCondition(p.Cond, defines) {
+				out.Params = append(out.Params, p.Then)
+			} else if p.Else != nil {
+				out.Params = append(out.Params, p.Else)
+			}
+		default:
+			out.Params = append(out.Params, p)
+		}
+	}
 	out.Body = resolveCompoundStmt(d.Body, defines)
-	return &out
+	return out
 }
 
 // resolveStructDecl resolves @if members inside a struct body.
@@ -53,7 +65,7 @@ func resolveStructDecl(d *ast.StructDecl, defines map[string]bool) *ast.StructDe
 	out := &ast.StructDecl{Attrs: d.Attrs, Name: d.Name}
 	for _, m := range d.Members {
 		switch m := m.(type) {
-		case *ast.IfAttrStructField:
+		case ast.IfAttrStructField:
 			if evalCondition(m.Cond, defines) {
 				out.Members = append(out.Members, m.Then)
 			} else if m.Else != nil {
@@ -98,11 +110,16 @@ func resolveStmt(s ast.Stmt, defines map[string]bool) ast.Stmt {
 	case *ast.LoopStmt:
 		out := *s
 		out.Body = resolveCompoundStmt(s.Body, defines)
-		if s.Continuing != nil {
-			cont := *s.Continuing
-			cont.Body = resolveCompoundStmt(s.Continuing.Body, defines)
-			out.Continuing = &cont
-		}
+		// if s.Continuing != nil {
+		// 	cont := *s.Continuing
+		// 	cont.Body = resolveCompoundStmt(s.Continuing.Body, defines)
+		// 	out.Continuing = &cont
+		// }
+		return &out
+
+	case *ast.ContinuingStmt:
+		out := *s
+		out.Body = resolveCompoundStmt(s.Body, defines)
 		return &out
 
 	case *ast.SwitchStmt:
@@ -146,20 +163,37 @@ func resolveSwitchStmt(s *ast.SwitchStmt, defines map[string]bool) *ast.SwitchSt
 	out := &ast.SwitchStmt{Attrs: s.Attrs, Expr: s.Expr}
 	for _, c := range s.Clauses {
 		switch c := c.(type) {
-		case *ast.CaseClause:
-			out.Clauses = append(out.Clauses, &ast.CaseClause{
-				Attrs:     c.Attrs,
-				Selectors: c.Selectors,
-				Body:      resolveCompoundStmt(c.Body, defines),
-			})
-		case *ast.DefaultAloneClause:
-			out.Clauses = append(out.Clauses, &ast.DefaultAloneClause{
-				Attrs: c.Attrs,
-				Body:  resolveCompoundStmt(c.Body, defines),
-			})
+		case *ast.IfAttrClause:
+			if evalCondition(c.Cond, defines) {
+				out.Clauses = append(out.Clauses, resolveClause(c.Then, defines))
+			} else {
+				if c.Else != nil {
+					out.Clauses = append(out.Clauses, resolveClause(c.Else, defines))
+				}
+			}
+		default:
+			out.Clauses = append(out.Clauses, resolveClause(c, defines))
 		}
 	}
 	return out
+}
+
+func resolveClause(c ast.SwitchClause, defines map[string]bool) ast.SwitchClause {
+	switch c := c.(type) {
+	case *ast.CaseClause:
+		return &ast.CaseClause{
+			Attrs:     c.Attrs,
+			Selectors: c.Selectors,
+			Body:      resolveCompoundStmt(c.Body, defines),
+		}
+	case *ast.DefaultAloneClause:
+		return &ast.DefaultAloneClause{
+			Attrs: c.Attrs,
+			Body:  resolveCompoundStmt(c.Body, defines),
+		}
+	default:
+		panic("unknown clause")
+	}
 }
 
 func evalCondition(expr ast.Expr, defines map[string]bool) bool {

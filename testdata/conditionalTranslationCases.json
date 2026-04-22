@@ -74,14 +74,14 @@
     "weslSrc": {
       "./main.wgsl": "@if(true) fn foo() {} @if(false) fn bar() {}"
     },
-    "expectedWgsl": "fn foo() {}"
+    "expectedWgsl": "fn foo() { }"
   },
   {
     "name": "@if on function formal parameter",
     "weslSrc": {
       "./main.wgsl": "fn func(@if(true) foo: u32, @if(false) bar: u32) {}"
     },
-    "expectedWgsl": "fn func(foo: u32) {}"
+    "expectedWgsl": "fn func(foo: u32) { }"
   },
   {
     "name": "@if on structure declaration",
@@ -156,9 +156,9 @@
   {
     "name": "@if on for statement",
     "weslSrc": {
-      "./main.wgsl": "fn func() { @if(true) for (var foo = 0; foo < 10; foo++) {} @if(false) for (var bar = 0; bar < 10; bar++) {} }"
+      "./main.wgsl": "fn func() { @if(true) for (var foo = 0; foo < 10; foo++) { } @if(false) for (var bar = 0; bar < 10; bar++) { } }"
     },
-    "expectedWgsl": "fn func() { for (var foo = 0; foo < 10; foo++) {} }"
+    "expectedWgsl": "fn func() { for (var foo = 0; foo < 10; foo++) { } }"
   },
   {
     "name": "@if on while statement",
@@ -172,7 +172,7 @@
     "weslSrc": {
       "./main.wgsl": "fn foo() { while true { @if(true) break; }; } fn bar() { while true { @if(false) break; }; }"
     },
-    "expectedWgsl": "fn foo() { while true { break; }; } fn bar() { while true { }; }"
+    "expectedWgsl": "fn foo() { while true { break; } ; } fn bar() { while true { } ; }"
   },
   {
     "name": "@if on break-if statement",

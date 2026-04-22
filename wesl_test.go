@@ -140,7 +140,7 @@ func TestConditionalTranslation(t *testing.T) {
 			}
 
 			if test.Expected != got {
-				t.Errorf("translate (%s) expected (%s), got (%s)", src, test.Expected, got)
+				t.Errorf("translate (%s)\n  expected (%s)\n  got (%s)", src, test.Expected, got)
 			}
 		})
 	}
