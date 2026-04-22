@@ -30,7 +30,7 @@ func (p *parser) parseAttribute() ast.Attribute {
 		if p.at(tokenLParen) {
 			args = p.parseAttributeExpressionList()
 		}
-		attr := &ast.GenericAttribute{
+		attr := ast.Attribute{
 			Name: tok.val,
 			Args: args,
 		}
@@ -38,7 +38,7 @@ func (p *parser) parseAttribute() ast.Attribute {
 	}
 
 	p.unexpected(tok)
-	return nil
+	panic("unreachable")
 }
 
 func (p *parser) parseAttributeExpressionList() []ast.Expr {

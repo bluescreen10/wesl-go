@@ -2,11 +2,11 @@ package ast
 
 import "io"
 
-type ImportDecl struct {
-	Symbol string
-	Alias  string
-	Path   string
-}
+// type ImportDecl struct {
+// 	Symbol string
+// 	Alias  string
+// 	Path   string
+// }
 
 func (i ImportDecl) Emit(w io.Writer) {
 	w.Write([]byte(i.Path))

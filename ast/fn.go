@@ -2,14 +2,14 @@ package ast
 
 import "io"
 
-type FnDecl struct {
-	Name        string
-	Attrs       []Attribute
-	Params      []Param
-	ReturnAttrs []Attribute
-	ReturnType  *TypeSpecifier
-	Body        *CompoundStmt
-}
+// type FnDecl struct {
+// 	Name        string
+// 	Attrs       []Attribute
+// 	Params      []Param
+// 	ReturnAttrs []Attribute
+// 	ReturnType  *TypeSpecifier
+// 	Body        *CompoundStmt
+// }
 
 func (f FnDecl) Emit(w io.Writer) {
 	for i, a := range f.Attrs {
@@ -42,15 +42,15 @@ func (f FnDecl) Emit(w io.Writer) {
 	f.Body.Emit(w)
 }
 
-type Param interface {
-	Emit(w io.Writer)
-}
+// type Param interface {
+// 	Emit(w io.Writer)
+// }
 
-type IfAttrParam struct {
-	Cond Expr
-	Then FnParam
-	Else *FnParam
-}
+// type IfAttrParam struct {
+// 	Cond Expr
+// 	Then FnParam
+// 	Else *FnParam
+// }
 
 func (p IfAttrParam) Emit(w io.Writer) {
 	w.Write([]byte{'@', 'i', 'f'})
@@ -62,11 +62,11 @@ func (p IfAttrParam) Emit(w io.Writer) {
 	}
 }
 
-type FnParam struct {
-	Name  string
-	Type  TypeSpecifier
-	Attrs []Attribute
-}
+// type FnParam struct {
+// 	Name  string
+// 	Type  TypeSpecifier
+// 	Attrs []Attribute
+// }
 
 func (p FnParam) Emit(w io.Writer) {
 	for _, a := range p.Attrs {

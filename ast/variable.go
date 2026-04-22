@@ -2,20 +2,20 @@ package ast
 
 import "io"
 
-type ConstAssertDecl struct {
-	Assert *ConstAssertStmt
-}
+// type ConstAssertDecl struct {
+// 	Assert *ConstAssertStmt
+// }
 
 func (x ConstAssertDecl) Emit(w io.Writer) {
 	x.Assert.Emit(w)
 	w.Write([]byte{';'})
 }
 
-type VariableDecl struct {
-	Ident        OptionallyTypedIdent
-	Attrs        []Attribute
-	TemplateArgs []Expr
-}
+// type VariableDecl struct {
+// 	Ident        OptionallyTypedIdent
+// 	Attrs        []Attribute
+// 	TemplateArgs []Expr
+// }
 
 func (v VariableDecl) Emit(w io.Writer) {
 	for _, a := range v.Attrs {
@@ -38,10 +38,10 @@ func (v VariableDecl) Emit(w io.Writer) {
 	v.Ident.Emit(w)
 }
 
-type GlobalVariableDecl struct {
-	Decl Expr
-	Init Expr
-}
+// type GlobalVariableDecl struct {
+// 	Decl Expr
+// 	Init Expr
+// }
 
 func (g GlobalVariableDecl) Emit(w io.Writer) {
 	g.Decl.Emit(w)
@@ -52,12 +52,12 @@ func (g GlobalVariableDecl) Emit(w io.Writer) {
 	w.Write([]byte{';'})
 }
 
-type GlobalValueDecl struct {
-	Keyword string
-	Attrs   []Attribute
-	Ident   OptionallyTypedIdent
-	Init    Expr
-}
+// type GlobalValueDecl struct {
+// 	Keyword string
+// 	Attrs   []Attribute
+// 	Ident   OptionallyTypedIdent
+// 	Init    Expr
+// }
 
 func (g GlobalValueDecl) Emit(w io.Writer) {
 	for _, a := range g.Attrs {
@@ -74,13 +74,13 @@ func (g GlobalValueDecl) Emit(w io.Writer) {
 	w.Write([]byte{';'})
 }
 
-type VarOrValueStmt struct {
-	Attrs   []Attribute
-	Keyword string
-	Decl    *VariableDecl
-	Ident   *OptionallyTypedIdent
-	Init    Expr
-}
+// type VarOrValueStmt struct {
+// 	Attrs   []Attribute
+// 	Keyword string
+// 	Decl    *VariableDecl
+// 	Ident   *OptionallyTypedIdent
+// 	Init    Expr
+// }
 
 func (s VarOrValueStmt) Emit(w io.Writer) {
 	for _, a := range s.Attrs {

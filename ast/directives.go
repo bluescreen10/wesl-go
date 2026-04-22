@@ -2,10 +2,10 @@ package ast
 
 import "io"
 
-type DiagnosticDirective struct {
-	Attrs   []Attribute
-	Control DiagnosticControl
-}
+// type DiagnosticDirective struct {
+// 	Attrs   []Attribute
+// 	Control DiagnosticControl
+// }
 
 func (d DiagnosticDirective) Emit(w io.Writer) {
 	for _, a := range d.Attrs {
@@ -16,10 +16,10 @@ func (d DiagnosticDirective) Emit(w io.Writer) {
 	w.Write([]byte{')', ';'})
 }
 
-type DiagnosticControl struct {
-	Severity string
-	RuleName string
-}
+// type DiagnosticControl struct {
+// 	Severity string
+// 	RuleName string
+// }
 
 func (dc DiagnosticControl) Emit(w io.Writer) {
 	w.Write([]byte(dc.Severity))
@@ -27,10 +27,10 @@ func (dc DiagnosticControl) Emit(w io.Writer) {
 	w.Write([]byte(dc.RuleName))
 }
 
-type EnableDirective struct {
-	Attrs      []Attribute
-	Extensions []string
-}
+// type EnableDirective struct {
+// 	Attrs      []Attribute
+// 	Extensions []string
+// }
 
 func (e EnableDirective) Emit(w io.Writer) {
 	for _, a := range e.Attrs {
@@ -47,10 +47,10 @@ func (e EnableDirective) Emit(w io.Writer) {
 	w.Write([]byte{';'})
 }
 
-type RequiresDirective struct {
-	Attrs      []Attribute
-	Extensions []string
-}
+// type RequiresDirective struct {
+// 	Attrs      []Attribute
+// 	Extensions []string
+// }
 
 func (r RequiresDirective) Emit(w io.Writer) {
 	for _, a := range r.Attrs {

@@ -2,15 +2,15 @@ package ast
 
 import "io"
 
-type Expr interface {
-	Emit(w io.Writer)
-}
+// type Expr interface {
+// 	Emit(w io.Writer)
+// }
 
-type BinaryExpr struct {
-	Op    string
-	Left  Expr
-	Right Expr
-}
+// type BinaryExpr struct {
+// 	Op    string
+// 	Left  Expr
+// 	Right Expr
+// }
 
 func (b BinaryExpr) Emit(w io.Writer) {
 	b.Left.Emit(w)
@@ -20,10 +20,10 @@ func (b BinaryExpr) Emit(w io.Writer) {
 	b.Right.Emit(w)
 }
 
-type UnaryExpr struct {
-	Op      string
-	Operand Expr
-}
+// type UnaryExpr struct {
+// 	Op      string
+// 	Operand Expr
+// }
 
 func (u UnaryExpr) Emit(w io.Writer) {
 	w.Write([]byte(u.Op))
@@ -31,28 +31,28 @@ func (u UnaryExpr) Emit(w io.Writer) {
 	u.Operand.Emit(w)
 }
 
-type DerefExpr struct {
-	Operand Expr
-}
+// type DerefExpr struct {
+// 	Operand Expr
+// }
 
 func (d DerefExpr) Emit(w io.Writer) {
 	w.Write([]byte{'*'})
 	d.Operand.Emit(w)
 }
 
-type AddrOfExpr struct {
-	Operand Expr
-}
+// type AddrOfExpr struct {
+// 	Operand Expr
+// }
 
 func (a AddrOfExpr) Emit(w io.Writer) {
 	w.Write([]byte{'&'})
 	a.Operand.Emit(w)
 }
 
-type MemberExpr struct {
-	Base   Expr
-	Member string
-}
+// type MemberExpr struct {
+// 	Base   Expr
+// 	Member string
+// }
 
 func (m MemberExpr) Emit(w io.Writer) {
 	m.Base.Emit(w)
@@ -60,10 +60,10 @@ func (m MemberExpr) Emit(w io.Writer) {
 	w.Write([]byte(m.Member))
 }
 
-type IndexExpr struct {
-	Base  Expr
-	Index Expr
-}
+// type IndexExpr struct {
+// 	Base  Expr
+// 	Index Expr
+// }
 
 func (i IndexExpr) Emit(w io.Writer) {
 	i.Base.Emit(w)
@@ -72,17 +72,17 @@ func (i IndexExpr) Emit(w io.Writer) {
 	w.Write([]byte{']'})
 }
 
-type LitExpr struct {
-	Val string
-}
+// type LitExpr struct {
+// 	Val string
+// }
 
 func (l LitExpr) Emit(w io.Writer) {
 	w.Write([]byte(l.Val))
 }
 
-type ParenExpr struct {
-	Inner Expr
-}
+// type ParenExpr struct {
+// 	Inner Expr
+// }
 
 func (p ParenExpr) Emit(w io.Writer) {
 	w.Write([]byte{'('})
@@ -90,11 +90,11 @@ func (p ParenExpr) Emit(w io.Writer) {
 	w.Write([]byte{')'})
 }
 
-type CallExpr struct {
-	Callee       string
-	TemplateArgs []Expr
-	Args         []Expr
-}
+// type CallExpr struct {
+// 	Callee       string
+// 	TemplateArgs []Expr
+// 	Args         []Expr
+// }
 
 func (c CallExpr) Emit(w io.Writer) {
 	w.Write([]byte(c.Callee))

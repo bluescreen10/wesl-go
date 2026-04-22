@@ -246,7 +246,7 @@ func (p *parser) parseExpressionStatement(attrs []ast.Attribute) ast.Stmt {
 		if !ok {
 			p.unexpected(p.peekNonTrivia())
 		}
-		return &ast.FuncCallStmt{Attrs: attrs, Call: *call}
+		return &ast.FnCallStmt{Attrs: attrs, Call: *call}
 	}
 }
 

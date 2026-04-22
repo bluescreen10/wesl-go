@@ -2,16 +2,16 @@ package ast
 
 import "io"
 
-type Attribute interface {
-	Emit(w io.Writer)
-}
+// type Attribute interface {
+// 	Emit(w io.Writer)
+// }
 
-type GenericAttribute struct {
-	Name string
-	Args []Expr
-}
+// type Attribute struct {
+// 	Name string
+// 	Args []Expr
+// }
 
-func (a GenericAttribute) Emit(w io.Writer) {
+func (a Attribute) Emit(w io.Writer) {
 	w.Write([]byte(a.Name))
 	if count := len(a.Args); count > 0 {
 		w.Write([]byte{'('})

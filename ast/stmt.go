@@ -2,14 +2,10 @@ package ast
 
 import "io"
 
-type Stmt interface {
-	Emit(w io.Writer)
-}
-
-type CompoundStmt struct {
-	Attrs []Attribute
-	Stmts []Stmt
-}
+// type CompoundStmt struct {
+// 	Attrs []Attribute
+// 	Stmts []Stmt
+// }
 
 func (c CompoundStmt) Emit(w io.Writer) {
 	for _, a := range c.Attrs {
@@ -52,16 +48,16 @@ func (c CompoundStmt) Emit(w io.Writer) {
 	w.Write([]byte{'}'})
 }
 
-type EmptyStmt struct{}
+//type EmptyStmt struct{}
 
 func (f EmptyStmt) Emit(w io.Writer) {
 
 }
 
-type ReturnStmt struct {
-	Attrs []Attribute
-	Value Expr
-}
+// type ReturnStmt struct {
+// 	Attrs []Attribute
+// 	Value Expr
+// }
 
 func (r ReturnStmt) Emit(w io.Writer) {
 	for _, a := range r.Attrs {
@@ -75,10 +71,10 @@ func (r ReturnStmt) Emit(w io.Writer) {
 	}
 }
 
-type BreakIfStmt struct {
-	Attrs []Attribute
-	Cond  Expr
-}
+// type BreakIfStmt struct {
+// 	Attrs []Attribute
+// 	Cond  Expr
+// }
 
 func (b BreakIfStmt) Emit(w io.Writer) {
 	for _, a := range b.Attrs {
@@ -89,9 +85,9 @@ func (b BreakIfStmt) Emit(w io.Writer) {
 	b.Cond.Emit(w)
 }
 
-type BreakStmt struct {
-	Attrs []Attribute
-}
+// type BreakStmt struct {
+// 	Attrs []Attribute
+// }
 
 func (b BreakStmt) Emit(w io.Writer) {
 	for _, a := range b.Attrs {
@@ -101,9 +97,9 @@ func (b BreakStmt) Emit(w io.Writer) {
 	w.Write([]byte{'b', 'r', 'e', 'a', 'k'})
 }
 
-type ContinueStmt struct {
-	Attrs []Attribute
-}
+// type ContinueStmt struct {
+// 	Attrs []Attribute
+// }
 
 func (c ContinueStmt) Emit(w io.Writer) {
 	for _, a := range c.Attrs {
@@ -113,10 +109,10 @@ func (c ContinueStmt) Emit(w io.Writer) {
 	w.Write([]byte{'c', 'o', 'n', 't', 'i', 'n', 'u', 'e'})
 }
 
-type ContinuingStmt struct {
-	Attrs []Attribute
-	Body  *CompoundStmt
-}
+// type ContinuingStmt struct {
+// 	Attrs []Attribute
+// 	Body  *CompoundStmt
+// }
 
 func (c ContinuingStmt) Emit(w io.Writer) {
 	for _, a := range c.Attrs {
@@ -127,9 +123,9 @@ func (c ContinuingStmt) Emit(w io.Writer) {
 	c.Body.Emit(w)
 }
 
-type DiscardStmt struct {
-	Attrs []Attribute
-}
+// type DiscardStmt struct {
+// 	Attrs []Attribute
+// }
 
 func (d DiscardStmt) Emit(w io.Writer) {
 	for _, a := range d.Attrs {
@@ -139,10 +135,10 @@ func (d DiscardStmt) Emit(w io.Writer) {
 	w.Write([]byte{'d', 'i', 's', 'c', 'a', 'r', 'd'})
 }
 
-type ConstAssertStmt struct {
-	Attrs []Attribute
-	Expr  Expr
-}
+// type ConstAssertStmt struct {
+// 	Attrs []Attribute
+// 	Expr  Expr
+// }
 
 func (c ConstAssertStmt) Emit(w io.Writer) {
 	for _, a := range c.Attrs {
@@ -153,12 +149,12 @@ func (c ConstAssertStmt) Emit(w io.Writer) {
 	c.Expr.Emit(w)
 }
 
-type AssignmentStmt struct {
-	Attrs []Attribute
-	LHS   Expr
-	RHS   Expr
-	Op    string
-}
+// type AssignmentStmt struct {
+// 	Attrs []Attribute
+// 	LHS   Expr
+// 	RHS   Expr
+// 	Op    string
+// }
 
 func (a AssignmentStmt) Emit(w io.Writer) {
 	for _, attr := range a.Attrs {
@@ -176,12 +172,12 @@ func (a AssignmentStmt) Emit(w io.Writer) {
 	a.RHS.Emit(w)
 }
 
-type FuncCallStmt struct {
-	Attrs []Attribute
-	Call  CallExpr
-}
+// type FnCallStmt struct {
+// 	Attrs []Attribute
+// 	Call  CallExpr
+// }
 
-func (f FuncCallStmt) Emit(w io.Writer) {
+func (f FnCallStmt) Emit(w io.Writer) {
 	for _, a := range f.Attrs {
 		a.Emit(w)
 		w.Write([]byte{' '})
@@ -189,10 +185,10 @@ func (f FuncCallStmt) Emit(w io.Writer) {
 	f.Call.Emit(w)
 }
 
-type IncrementStmt struct {
-	Attrs []Attribute
-	LHS   Expr
-}
+// type IncrementStmt struct {
+// 	Attrs []Attribute
+// 	LHS   Expr
+// }
 
 func (s IncrementStmt) Emit(w io.Writer) {
 	for _, a := range s.Attrs {
@@ -203,10 +199,10 @@ func (s IncrementStmt) Emit(w io.Writer) {
 	w.Write([]byte{'+', '+'})
 }
 
-type DecrementStmt struct {
-	Attrs []Attribute
-	LHS   Expr
-}
+// type DecrementStmt struct {
+// 	Attrs []Attribute
+// 	LHS   Expr
+// }
 
 func (s DecrementStmt) Emit(w io.Writer) {
 	for _, a := range s.Attrs {
@@ -217,11 +213,11 @@ func (s DecrementStmt) Emit(w io.Writer) {
 	w.Write([]byte{'-', '-'})
 }
 
-type CaseClause struct {
-	Attrs     []Attribute
-	Selectors []Expr
-	Body      *CompoundStmt
-}
+// type CaseClause struct {
+// 	Attrs     []Attribute
+// 	Selectors []Expr
+// 	Body      *CompoundStmt
+// }
 
 func (s CaseClause) Emit(w io.Writer) {
 	for _, a := range s.Attrs {
@@ -240,10 +236,10 @@ func (s CaseClause) Emit(w io.Writer) {
 	s.Body.Emit(w)
 }
 
-type DefaultAloneClause struct {
-	Attrs []Attribute
-	Body  *CompoundStmt
-}
+// type DefaultAloneClause struct {
+// 	Attrs []Attribute
+// 	Body  *CompoundStmt
+// }
 
 func (s DefaultAloneClause) Emit(w io.Writer) {
 	for _, a := range s.Attrs {
@@ -254,11 +250,11 @@ func (s DefaultAloneClause) Emit(w io.Writer) {
 	s.Body.Emit(w)
 }
 
-type IfAttrClause struct {
-	Cond Expr
-	Then SwitchClause
-	Else SwitchClause
-}
+// type IfAttrClause struct {
+// 	Cond Expr
+// 	Then SwitchClause
+// 	Else SwitchClause
+// }
 
 func (x IfAttrClause) Emit(w io.Writer) {
 	w.Write([]byte{'@', 'i', 'f', '('})
@@ -271,13 +267,13 @@ func (x IfAttrClause) Emit(w io.Writer) {
 	}
 }
 
-type IfStmt struct {
-	Attrs  []Attribute
-	Cond   Expr
-	Then   *CompoundStmt
-	ElseIf *IfStmt
-	Else   *CompoundStmt
-}
+// type IfStmt struct {
+// 	Attrs  []Attribute
+// 	Cond   Expr
+// 	Then   *CompoundStmt
+// 	ElseIf *IfStmt
+// 	Else   *CompoundStmt
+// }
 
 func (s IfStmt) Emit(w io.Writer) {
 	for _, a := range s.Attrs {
@@ -298,11 +294,11 @@ func (s IfStmt) Emit(w io.Writer) {
 	}
 }
 
-type IfAttrStmt struct {
-	Cond Expr
-	Then Stmt
-	Else Stmt
-}
+// type IfAttrStmt struct {
+// 	Cond Expr
+// 	Then Stmt
+// 	Else Stmt
+// }
 
 func (s IfAttrStmt) Emit(w io.Writer) {
 	w.Write([]byte{'@', 'i', 'f', '('})
@@ -315,11 +311,11 @@ func (s IfAttrStmt) Emit(w io.Writer) {
 	}
 }
 
-type SwitchStmt struct {
-	Attrs   []Attribute
-	Expr    Expr
-	Clauses []SwitchClause
-}
+// type SwitchStmt struct {
+// 	Attrs   []Attribute
+// 	Expr    Expr
+// 	Clauses []SwitchClause
+// }
 
 func (s SwitchStmt) Emit(w io.Writer) {
 	for _, a := range s.Attrs {
@@ -335,12 +331,12 @@ func (s SwitchStmt) Emit(w io.Writer) {
 	w.Write([]byte{' ', '}'})
 }
 
-type LoopStmt struct {
-	Attrs     []Attribute
-	BodyAttrs []Attribute
-	Body      *CompoundStmt
-	//Continuing *ContinuingStmt
-}
+// type LoopStmt struct {
+// 	Attrs     []Attribute
+// 	BodyAttrs []Attribute
+// 	Body      *CompoundStmt
+// 	//Continuing *ContinuingStmt
+// }
 
 func (s LoopStmt) Emit(w io.Writer) {
 	for _, a := range s.Attrs {
@@ -358,13 +354,13 @@ func (s LoopStmt) Emit(w io.Writer) {
 	// }
 }
 
-type ForStmt struct {
-	Attrs  []Attribute
-	Init   Stmt
-	Cond   Expr
-	Update Stmt
-	Body   *CompoundStmt
-}
+// type ForStmt struct {
+// 	Attrs  []Attribute
+// 	Init   Stmt
+// 	Cond   Expr
+// 	Update Stmt
+// 	Body   *CompoundStmt
+// }
 
 func (s ForStmt) Emit(w io.Writer) {
 	for _, a := range s.Attrs {
@@ -391,11 +387,11 @@ func (s ForStmt) Emit(w io.Writer) {
 	}
 }
 
-type WhileStmt struct {
-	Attrs []Attribute
-	Cond  Expr
-	Body  *CompoundStmt
-}
+// type WhileStmt struct {
+// 	Attrs []Attribute
+// 	Cond  Expr
+// 	Body  *CompoundStmt
+// }
 
 func (s WhileStmt) Emit(w io.Writer) {
 	for _, a := range s.Attrs {

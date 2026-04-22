@@ -46,7 +46,7 @@ func resolveFnDecl(d *ast.FnDecl, defines map[string]bool) *ast.FnDecl {
 	out := &ast.FnDecl{Attrs: d.Attrs, Name: d.Name, ReturnAttrs: d.ReturnAttrs, ReturnType: d.ReturnType}
 	for _, p := range d.Params {
 		switch p := p.(type) {
-		case ast.IfAttrParam:
+		case *ast.IfAttrParam:
 			if evalCondition(p.Cond, defines) {
 				out.Params = append(out.Params, p.Then)
 			} else if p.Else != nil {
@@ -65,7 +65,7 @@ func resolveStructDecl(d *ast.StructDecl, defines map[string]bool) *ast.StructDe
 	out := &ast.StructDecl{Attrs: d.Attrs, Name: d.Name}
 	for _, m := range d.Members {
 		switch m := m.(type) {
-		case ast.IfAttrStructField:
+		case *ast.IfAttrStructField:
 			if evalCondition(m.Cond, defines) {
 				out.Members = append(out.Members, m.Then)
 			} else if m.Else != nil {

@@ -119,15 +119,15 @@ func (p *parser) parseStructDecl(attrs []ast.Attribute) *ast.StructDecl {
 	return &ast.StructDecl{Attrs: attrs, Name: name.val, Members: members}
 }
 
-func (p *parser) parseStructField() ast.StructField {
+func (p *parser) parseStructField() *ast.StructField {
 	attrs := p.parseAttributes()
 	name := p.expect(tokenIdent)
 	p.expect(tokenColon)
 	typ := p.parseTypeSpecifier()
-	return ast.StructField{Attrs: attrs, Name: name.val, Type: typ}
+	return &ast.StructField{Attrs: attrs, Name: name.val, Type: typ}
 }
 
-func (p *parser) parseIfAttrStructField() ast.IfAttrStructField {
+func (p *parser) parseIfAttrStructField() *ast.IfAttrStructField {
 	p.nextNonTrivia() // consume @if token
 	cond := p.parseExpression()
 	then := p.parseStructField()
@@ -138,10 +138,10 @@ func (p *parser) parseIfAttrStructField() ast.IfAttrStructField {
 		if p.at(tokenElseAttr) {
 			p.nextNonTrivia() // consume @else token
 			els := p.parseStructField()
-			node.Else = &els
+			node.Else = els
 		}
 	}
-	return node
+	return &node
 }
 
 // ── type_alias_decl ───────────────────────────────────────────────────────────
@@ -182,7 +182,7 @@ func (p *parser) parseVariableDecl(attrs []ast.Attribute) ast.VariableDecl {
 //	variable_decl ( '=' expression )?
 func (p *parser) parseGlobalVariableDecl(attrs []ast.Attribute) *ast.GlobalVariableDecl {
 	decl := p.parseVariableDecl(attrs)
-	gvd := &ast.GlobalVariableDecl{Decl: decl}
+	gvd := &ast.GlobalVariableDecl{Decl: &decl}
 	if p.at(tokenEqual) {
 		p.nextNonTrivia()
 		gvd.Init = p.parseExpression()

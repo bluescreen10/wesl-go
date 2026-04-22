@@ -2,18 +2,18 @@ package ast
 
 import "io"
 
-type Ident struct {
-	Name string
-}
+// type Ident struct {
+// 	Name string
+// }
 
 func (i Ident) Emit(w io.Writer) {
 	w.Write([]byte(i.Name))
 }
 
-type TypeSpecifier struct {
-	Name         string
-	TemplateArgs []Expr
-}
+// type TypeSpecifier struct {
+// 	Name         string
+// 	TemplateArgs []Expr
+// }
 
 func (ts TypeSpecifier) AsExpr() Expr {
 	if len(ts.TemplateArgs) == 0 {
@@ -37,10 +37,10 @@ func (t TypeSpecifier) Emit(w io.Writer) {
 	}
 }
 
-type OptionallyTypedIdent struct {
-	Name string
-	Type *TypeSpecifier
-}
+// type OptionallyTypedIdent struct {
+// 	Name string
+// 	Type *TypeSpecifier
+// }
 
 func (o OptionallyTypedIdent) Emit(w io.Writer) {
 	w.Write([]byte(o.Name))
@@ -50,19 +50,16 @@ func (o OptionallyTypedIdent) Emit(w io.Writer) {
 	}
 }
 
-type Arg struct {
-}
+// type StructMember interface {
+// 	Emit(w io.Writer)
+// 	//structMemberMarker()
+// }
 
-type StructMember interface {
-	Emit(w io.Writer)
-	//structMemberMarker()
-}
-
-type StructDecl struct {
-	Name    string
-	Attrs   []Attribute
-	Members []StructMember
-}
+// type StructDecl struct {
+// 	Name    string
+// 	Attrs   []Attribute
+// 	Members []StructMember
+// }
 
 func (s StructDecl) Emit(w io.Writer) {
 	for _, a := range s.Attrs {
@@ -91,11 +88,11 @@ func (s StructDecl) Emit(w io.Writer) {
 	w.Write([]byte{'}'})
 }
 
-type StructField struct {
-	Name  string
-	Attrs []Attribute
-	Type  TypeSpecifier
-}
+// type StructField struct {
+// 	Name  string
+// 	Attrs []Attribute
+// 	Type  TypeSpecifier
+// }
 
 func (s StructField) Emit(w io.Writer) {
 	for _, a := range s.Attrs {
@@ -107,11 +104,11 @@ func (s StructField) Emit(w io.Writer) {
 	s.Type.Emit(w)
 }
 
-type IfAttrStructField struct {
-	Cond Expr
-	Then StructField
-	Else *StructField
-}
+// type IfAttrStructField struct {
+// 	Cond Expr
+// 	Then StructField
+// 	Else *StructField
+// }
 
 func (i IfAttrStructField) Emit(w io.Writer) {
 	w.Write([]byte{'@', 'i', 'f'})
@@ -124,11 +121,11 @@ func (i IfAttrStructField) Emit(w io.Writer) {
 	}
 }
 
-type TypeAliasDecl struct {
-	Name  string
-	Attrs []Attribute
-	Type  TypeSpecifier
-}
+// type TypeAliasDecl struct {
+// 	Name  string
+// 	Attrs []Attribute
+// 	Type  TypeSpecifier
+// }
 
 func (t TypeAliasDecl) Emit(w io.Writer) {
 	for _, a := range t.Attrs {

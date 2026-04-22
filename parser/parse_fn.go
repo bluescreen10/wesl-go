@@ -43,7 +43,7 @@ func (p *parser) parseFnDecl(attrs []ast.Attribute) *ast.FnDecl {
 	}
 }
 
-func (p *parser) parseIfAttrParam() ast.IfAttrParam {
+func (p *parser) parseIfAttrParam() *ast.IfAttrParam {
 	p.nextNonTrivia() // consume @if token
 	cond := p.parseExpression()
 	then := p.parseParam()
@@ -52,17 +52,17 @@ func (p *parser) parseIfAttrParam() ast.IfAttrParam {
 	if p.at(tokenElseAttr) {
 		p.nextNonTrivia() // consume @else token
 		els := p.parseParam()
-		node.Else = &els
+		node.Else = els
 	}
-	return node
+	return &node
 }
 
-func (p *parser) parseParam() ast.FnParam {
+func (p *parser) parseParam() *ast.FnParam {
 	paramAttrs := p.parseAttributes()
 	paramName := p.expect(tokenIdent)
 	p.expect(tokenColon)
 	paramType := p.parseTypeSpecifier()
-	return ast.FnParam{
+	return &ast.FnParam{
 		Name:  paramName.val,
 		Type:  paramType,
 		Attrs: paramAttrs,
