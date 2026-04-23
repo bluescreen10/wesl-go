@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/bluescreen10/wesl-go/parser"
+	"github.com/bluescreen10/wesl-go/printer"
 )
 
 type common struct {
@@ -54,6 +55,6 @@ func (t *Translator) Translate(src string, defines map[string]bool) (string, err
 
 	resolved := ResolveFile(ast, defines)
 	var buf bytes.Buffer
-	resolved.Emit(&buf)
+	printer.Fprint(&buf, resolved)
 	return buf.String(), nil
 }
