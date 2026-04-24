@@ -7,7 +7,14 @@ import (
 )
 
 func ResolveImports(f *ast.File, files map[string]*ast.File, defines map[string]bool) *ast.File {
-	if len(f.Imports) == 0 {
+	hasImports := false
+	for _, d := range f.Decls {
+		if _, ok := d.(*ast.ImportDecl); ok {
+			hasImports = true
+			break
+		}
+	}
+	if !hasImports {
 		return f
 	}
 
@@ -17,12 +24,16 @@ func ResolveImports(f *ast.File, files map[string]*ast.File, defines map[string]
 
 	importedDecls := resolver.resolveImports(f)
 
-	out := &ast.File{
-		Decls:   append(f.Decls, importedDecls...),
-		Imports: nil,
+	var nonImports []ast.Decl
+	for _, d := range f.Decls {
+		if _, ok := d.(*ast.ImportDecl); !ok {
+			nonImports = append(nonImports, d)
+		}
 	}
 
-	return out
+	return &ast.File{
+		Decls: append(nonImports, importedDecls...),
+	}
 }
 
 type importResolver struct {
@@ -37,18 +48,32 @@ func (r *importResolver) resolveImports(f *ast.File) []ast.Decl {
 
 	var decls []ast.Decl
 
-	for _, imp := range f.Imports {
-		targetFile := r.findFile(imp)
-		if targetFile == nil {
+	for _, d := range f.Decls {
+		imp, ok := d.(*ast.ImportDecl)
+		if !ok {
 			continue
 		}
+		for _, item := range imp.Items {
+			symbol := item.Path[len(item.Path)-1]
+			alias := item.Alias
+			if alias == "" {
+				alias = symbol
+			}
 
-		symbol := imp.Symbol
-		alias := imp.Alias
+			// Build the path string for file lookup: prefix + item sub-path (excluding terminal name)
+			subPath := item.Path[:len(item.Path)-1]
+			fullPrefix := append(append([]string{}, imp.Path...), subPath...)
+			pathStr := strings.Join(fullPrefix, "::") + "::"
 
-		extracted := r.extractExport(targetFile, symbol)
-		for _, d := range extracted {
-			decls = r.addDeclWithRename(decls, d, symbol, alias)
+			targetFile := r.findFile(pathStr)
+			if targetFile == nil {
+				continue
+			}
+
+			extracted := r.extractExport(targetFile, symbol)
+			for _, d := range extracted {
+				decls = r.addDeclWithRename(decls, d, symbol, alias)
+			}
 		}
 	}
 
@@ -87,8 +112,8 @@ func (r *importResolver) addDeclWithRename(decls []ast.Decl, d ast.Decl, symbol,
 	return decls
 }
 
-func (r *importResolver) findFile(imp ast.ImportDecl) *ast.File {
-	cleanImpPath := r.getImportPath(imp.Path)
+func (r *importResolver) findFile(path string) *ast.File {
+	cleanImpPath := r.getImportPath(path)
 
 	for filePath, f := range r.files {
 		cleanFilePath := strings.TrimPrefix(filePath, "./")

@@ -67,18 +67,16 @@ type (
 	// @if
 	IfAttrDecl IfAttr[Decl]
 
-	// Import
+	// Import declaration: import a::b::c::{ d::e, f as g };
 	ImportDecl struct {
-		Symbol     string
-		Alias      string
-		Path       string
-		Specifiers []ImportSpecifier
+		Path  []string    // prefix segments, e.g. ["a", "b", "c"]
+		Items []ImportItem // items being imported
 	}
 
-	// Import Specifier (for import package::{foo, bar})
-	ImportSpecifier struct {
-		Symbol string
-		Alias  string
+	// ImportItem is one entry in an import, e.g. "d::e" or "f as g"
+	ImportItem struct {
+		Path  []string // path segments; last element is the imported name
+		Alias string   // optional alias (empty if none)
 	}
 
 	// Reqiures Directive
@@ -116,7 +114,6 @@ func (*FnDecl) declNode()              {}
 func (*GlobalValueDecl) declNode()     {}
 func (*GlobalVariableDecl) declNode()  {}
 func (*ImportDecl) declNode()          {}
-func (ImportsDecl) declNode()          {} //FIXME: remove
 func (*IfAttrDecl) declNode()          {}
 func (*RequiresDirective) declNode()   {}
 func (*StructDecl) declNode()          {}
@@ -455,8 +452,7 @@ func (*FnParam) paramNode()     {}
 func (*IfAttrParam) paramNode() {}
 
 type File struct {
-	Decls   []Decl
-	Imports []ImportDecl
+	Decls []Decl
 }
 
 func (ts TypeSpecifier) AsExpr() Expr {
@@ -465,5 +461,3 @@ func (ts TypeSpecifier) AsExpr() Expr {
 	}
 	return &CallExpr{Callee: ts.Name, TemplateArgs: ts.TemplateArgs}
 }
-
-type ImportsDecl []ImportDecl

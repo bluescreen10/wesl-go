@@ -7,7 +7,7 @@ import "github.com/bluescreen10/wesl-go/ast"
 // condition is false and there is no @else).  The result is a new *File that
 // contains no IfAttr* nodes.
 func ResolveFile(f *ast.File, defines map[string]bool) *ast.File {
-	out := &ast.File{Imports: f.Imports}
+	out := &ast.File{}
 	for _, d := range f.Decls {
 		if r := resolveDecl(d, defines); r != nil {
 			out.Decls = append(out.Decls, r)

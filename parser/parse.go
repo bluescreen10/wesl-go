@@ -45,13 +45,7 @@ func (p *parser) Parse() (decls *ast.File, err error) {
 		}
 	}()
 	for !p.at(tokenEOF) {
-		decl := p.parseTopLevelDecl()
-		switch v := any(decl).(type) {
-		case ast.ImportsDecl:
-			p.ast.Imports = append(p.ast.Imports, v...)
-		default:
-			p.ast.Decls = append(p.ast.Decls, decl)
-		}
+		p.ast.Decls = append(p.ast.Decls, p.parseTopLevelDecl())
 	}
 	return &p.ast, nil
 }
