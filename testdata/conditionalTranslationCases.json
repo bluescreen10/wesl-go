@@ -257,8 +257,8 @@
       "./main.wgsl": "fn main() { package::util::func(); }",
       "./util.wgsl": "const foo = 10; const bar = 10; fn func() { @if(true) let foo = 20; let x = foo; /* foo is shadowed. */ @if(false) let bar = 20; let y = bar; /* bar is not shadowed. */ }"
     },
-    "expectedWgsl": "fn main() { func(); } fn func() { let foo = 20; let x = foo; /* foo is shadowed. */ let y = bar; /* bar is not shadowed. */ } const bar = 10;",
-    "underscoreWgsl": "fn main() { package_util_func(); } fn package_util_func() { let foo = 20; let x = foo; /* foo is shadowed. */ let y = package_util_bar; /* bar is not shadowed. */ } const package_util_bar = 10;"
+    "expectedWgsl": "fn main() { func(); } fn func() { let foo = 20; let x = foo; let y = bar; } const bar = 10;",
+    "underscoreWgsl": "fn main() { package_util_func(); } fn package_util_func() { let foo = 20; let x = foo; let y = package_util_bar; } const package_util_bar = 10;"
   },
   {
     "name": "conditional import of const_assert",
@@ -268,8 +268,8 @@
       "./foo.wgsl": "const_assert 0 < 1; fn func() {}",
       "./bar.wgsl": "const_assert 1 < 2; fn func() {}"
     },
-    "expectedWgsl": "const_assert 0 < 1; fn main() { func(); } fn func() {}",
-    "underscoreWgsl": "const_assert 0 < 1; fn main() { package_foo_func(); } fn package_foo_func() {}"
+    "expectedWgsl": "fn main() { func(); } const_assert 0 < 1; fn func() { }",
+    "underscoreWgsl": "fn main() { package_foo_func(); } const_assert 0 < 1; fn package_foo_func() { }"
   },
   {
     "name": "double conditional import of const_assert",
@@ -278,8 +278,8 @@
       "./main.wgsl": "fn main() { @if(true) package::foo::func(); @if(true) package::foo::bar(); }",
       "./foo.wgsl": "const_assert 0 < 1; fn func() {} fn bar() {}"
     },
-    "expectedWgsl": "const_assert 0 < 1; fn main() { func(); bar(); } fn func() {} fn bar() {}",
-    "underscoreWgsl": "const_assert 0 < 1; fn main() { package_foo_func(); package_foo_bar(); } fn package_foo_func() {} fn package_foo_bar() {}"
+    "expectedWgsl": "fn main() { func(); bar(); } const_assert 0 < 1; fn func() { } fn bar() { }",
+    "underscoreWgsl": "fn main() { package_foo_func(); const_assert 0 < 1; package_foo_bar(); } fn package_foo_func() { } fn package_foo_bar() { }"
   },
   {
     "name": "conditional transitive const",

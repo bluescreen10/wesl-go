@@ -50,16 +50,14 @@ func (c *Compiler) Compile(file string, defines map[string]bool) (string, error)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	parsedFile, exists := c.files[file]
-	if !exists {
+	if _, exists := c.files[file]; !exists {
 		return "", fmt.Errorf("error fetching parsed ast for file %s", file)
 	}
 
-	resolved := ResolveFile(parsedFile, defines)
+	// Use the new resolver for full resolution
+	resolver := NewResolver(c.files, defines)
+	resolved := resolver.Resolve(file)
 
-	if c != nil && c.files != nil {
-		resolved = ResolveImports(resolved, c.files, defines)
-	}
 	var buf bytes.Buffer
 	printer.Fprint(&buf, resolved)
 	return buf.String(), nil
