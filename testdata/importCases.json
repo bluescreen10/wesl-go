@@ -20,20 +20,20 @@
     "name": "import foo as bar",
     "weslSrc": {
       "./main.wgsl": "import package::file1::foo as bar; fn main() { bar(); }",
-      "./file1.wgsl": "fn foo() { /* fooImpl */ }"
+      "./file1.wgsl": "fn foo() { return 1; }"
     },
-    "expectedWgsl": "fn main() { bar(); } fn bar() { /* fooImpl */ }",
-    "underscoreWgsl": "fn main() { package_file1_foo(); } fn package_file1_foo() { /* fooImpl */ }"
+    "expectedWgsl": "fn main() { bar(); } fn bar() { return 1; }",
+    "underscoreWgsl": "fn main() { package_file1_foo(); } fn package_file1_foo() { return 1; }"
   },
   {
     "name": "import twice doesn't get two copies",
     "weslSrc": {
       "./main.wgsl": "import package::file1::foo; import package::file2::bar; fn main() { foo(); bar(); }",
-      "./file1.wgsl": "fn foo() { /* fooImpl */ }",
+      "./file1.wgsl": "fn foo() { return 1; }",
       "./file2.wgsl": "import package::file1::foo; fn bar() { foo(); }"
     },
-    "expectedWgsl": "fn main() { foo(); bar(); } fn foo() { /* fooImpl */ } fn bar() { foo(); }",
-    "underscoreWgsl": "fn main() { package_file1_foo(); package_file2_bar(); } fn package_file1_foo() { /* fooImpl */ } fn package_file2_bar() { package_file1_foo(); }"
+    "expectedWgsl": "fn main() { foo(); bar(); } fn foo() { return 1; } fn bar() { foo(); }",
+    "underscoreWgsl": "fn main() { package_file1_foo(); package_file2_bar(); } fn package_file1_foo() { return 1; } fn package_file2_bar() { package_file1_foo(); }"
   },
   {
     "name": "imported fn calls support fn with root conflict",
@@ -56,12 +56,12 @@
   {
     "name": "import transitive conflicts with main",
     "weslSrc": {
-      "./main.wgsl": "import package::file1::mid; fn main() { mid(); } fn grand() { /* main impl */ }",
+      "./main.wgsl": "import package::file1::mid; fn main() { mid(); } fn grand() { return 2; }",
       "./file1.wgsl": "import package::file2::grand; fn mid() { grand(); }",
       "./file2.wgsl": "fn grand() { /* grandImpl */ }"
     },
-    "expectedWgsl": "fn main() { mid(); } fn grand() { /* main impl */ } fn mid() { grand0(); } fn grand0() { /* grandImpl */ }",
-    "underscoreWgsl": "fn main() { package_file1_mid(); } fn grand() { /* main impl */ } fn package_file1_mid() { package_file2_grand(); } fn package_file2_grand() { /* grandImpl */ }"
+    "expectedWgsl": "fn main() { mid(); } fn grand() { return 2; } fn mid() { grand0(); } fn grand0() { /* grandImpl */ }",
+    "underscoreWgsl": "fn main() { package_file1_mid(); } fn grand() { return 2; } fn package_file1_mid() { package_file2_grand(); } fn package_file2_grand() { /* grandImpl */ }"
   },
   {
     "name": "multiple exports from the same module",

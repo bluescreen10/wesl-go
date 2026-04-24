@@ -202,6 +202,21 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 		return &ast.Ident{Name: ident}
 
 	case tokenIdent:
+		ident := t.val
+		// Consume namespace separators: foo::bar::baz
+		for p.at(tokenDoubleColon) {
+			p.nextNonTrivia() // consume ::
+			seg := p.expect(tokenIdent)
+			ident += "::" + seg.val
+		}
+		if ident != t.val {
+			// Namespace-qualified path; template args not supported here.
+			if p.at(tokenLParen) {
+				return &ast.CallExpr{Callee: ident, Args: p.parseArgumentExpressionList()}
+			}
+			return &ast.Ident{Name: ident}
+		}
+		// Unqualified identifier: check for template args on built-in types.
 		if isTemplateableIdent(t.val) && p.at(tokenLAngle) {
 			targs := p.parseTemplateList()
 			if p.at(tokenLParen) {
@@ -210,7 +225,6 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 			// Template-only (type specifier used as expression): vec3<f32> with no call.
 			return &ast.CallExpr{Callee: t.val, TemplateArgs: targs}
 		}
-		// Plain call.
 		if p.at(tokenLParen) {
 			return &ast.CallExpr{Callee: t.val, Args: p.parseArgumentExpressionList()}
 		}
