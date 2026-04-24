@@ -69,9 +69,16 @@ type (
 
 	// Import
 	ImportDecl struct {
+		Symbol     string
+		Alias      string
+		Path       string
+		Specifiers []ImportSpecifier
+	}
+
+	// Import Specifier (for import package::{foo, bar})
+	ImportSpecifier struct {
 		Symbol string
 		Alias  string
-		Path   string
 	}
 
 	// Reqiures Directive

@@ -26,7 +26,8 @@ func TestImportSyntax(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.Src, func(t *testing.T) {
-			_, err := wesl.New("test").Parse(test.Src)
+			compiler := wesl.New()
+			err := compiler.Parse("test", test.Src)
 			got := err != nil
 
 			if test.Expected != got {
@@ -56,35 +57,23 @@ func TestImportCases(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.Name, func(t *testing.T) {
-			var w *wesl.Translator
+			w := wesl.New()
 
 			for file, src := range test.Srcs {
-				// skip main
-				if file == "./main.wgsl" {
-					continue
-				}
-
-				if w == nil {
-					w, err = wesl.New(file).Parse(src)
-					if err != nil {
-						t.Errorf("error parsing file %s: %v", file, err)
-					}
-				} else {
-					w, err = w.New(file).Parse(src)
-					if err != nil {
-						t.Errorf("error parsing file %s: %v", file, err)
-					}
+				err := w.Parse(file, src)
+				if err != nil {
+					t.Errorf("error parsing file %s: %v", file, err)
 				}
 			}
 
-			src := test.Srcs["./main.wgsl"]
-			got, err := w.Translate(src, nil)
+			got, err := w.Compile("./main.wgsl", nil)
 
 			if err != nil {
 				t.Errorf("translate failed %v", err)
 			}
 
 			if test.Expected != got {
+				src := test.Srcs["./main.wgsl"]
 				t.Errorf("translate (%s) expected (%s), got (%s)", src, test.Expected, got)
 			}
 		})
@@ -111,35 +100,22 @@ func TestConditionalTranslation(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.Name, func(t *testing.T) {
-			var w *wesl.Translator
+			w := wesl.New()
 
 			for file, src := range test.Srcs {
-				// skip main
-				if file == "./main.wgsl" {
-					continue
-				}
-
-				if w == nil {
-					w, err = wesl.New(file).Parse(src)
-					if err != nil {
-						t.Errorf("error parsing file %s: %v", file, err)
-					}
-				} else {
-					w, err = w.New(file).Parse(src)
-					if err != nil {
-						t.Errorf("error parsing file %s: %v", file, err)
-					}
+				err := w.Parse(file, src)
+				if err != nil {
+					t.Errorf("error parsing file %s: %v", file, err)
 				}
 			}
 
-			src := test.Srcs["./main.wgsl"]
-			got, err := w.Translate(src, nil)
-
+			got, err := w.Compile("./main.wgsl", nil)
 			if err != nil {
 				t.Errorf("translate failed %v", err)
 			}
 
 			if test.Expected != got {
+				src := test.Srcs["./main.wgsl"]
 				t.Errorf("translate (%s)\n  expected (%s)\n  got (%s)", src, test.Expected, got)
 			}
 		})

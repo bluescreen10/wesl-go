@@ -3,57 +3,63 @@ package wesl
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"sync"
 
+	"github.com/bluescreen10/wesl-go/ast"
 	"github.com/bluescreen10/wesl-go/parser"
 	"github.com/bluescreen10/wesl-go/printer"
 )
 
-type common struct {
-	chunks   map[string]*Translator
-	muChunks sync.Mutex
+type Compiler struct {
+	files map[string]*ast.File
+	mu    sync.Mutex
 }
 
-type Translator struct {
-	name string
-	*common
-	modulePath string
-}
-
-func New(name string) *Translator {
-	w := &Translator{name: name}
+func New() *Compiler {
+	w := &Compiler{}
 	w.init()
 	return w
 }
 
-func (t *Translator) init() {
-	if t.common == nil {
-		c := new(common)
-		c.chunks = make(map[string]*Translator)
-		t.common = c
-	}
+func (c *Compiler) init() {
+	c.files = make(map[string]*ast.File)
 }
 
-func (t *Translator) Parse(src string) (*Translator, error) {
-	_, err := parser.Parse(src)
-	return t, err
-}
-
-func (t *Translator) New(name string) *Translator {
-	return &Translator{name: name, common: t.common}
-}
-
-func (t *Translator) Translate(src string, defines map[string]bool) (string, error) {
-	if src == "@if(false) fn f() -> u32 { return 1; } @else fn f() -> u32 { return 2; } fn main() -> u32 { return f(); }" {
-		fmt.Println("here")
-	}
-
-	ast, err := parser.Parse(src)
+func (c *Compiler) Parse(name, src string) error {
+	f, err := parser.Parse(src)
 	if err != nil {
-		return "", fmt.Errorf("error parsing source file: %v", err)
+		return fmt.Errorf("error parsing %s: %v", name, err)
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.files[name] = f
+	return nil
+}
+
+func (c *Compiler) ParseFile(path string) error {
+	src, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("error reading file %s: %v", path, err)
 	}
 
-	resolved := ResolveFile(ast, defines)
+	return c.Parse(path, string(src))
+}
+
+func (c *Compiler) Compile(file string, defines map[string]bool) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	parsedFile, exists := c.files[file]
+	if !exists {
+		return "", fmt.Errorf("error fetching parsed ast for file %s", file)
+	}
+
+	resolved := ResolveFile(parsedFile, defines)
+
+	if c != nil && c.files != nil {
+		resolved = ResolveImports(resolved, c.files, defines)
+	}
 	var buf bytes.Buffer
 	printer.Fprint(&buf, resolved)
 	return buf.String(), nil
