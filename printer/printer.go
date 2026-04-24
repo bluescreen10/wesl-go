@@ -55,13 +55,12 @@ const (
 	VAR          = "var"
 	REQUIRES     = "requires"
 
-	DOUBLE_COLON = "::"
-
-	// WESL Keywords
+	// WESL
 	IF_ATTR   = "@if"
 	ELSE_ATTR = "@else"
 	IMPORT    = "import"
 	AS        = "as"
+	DCOLON    = "::"
 )
 
 type printer struct {
@@ -169,36 +168,7 @@ func (p *printer) printDecl(d ast.Decl) {
 			p.printDecl(d.Else)
 		}
 	case *ast.ImportDecl:
-		p.writeString(IMPORT)
-		p.writeBytes(WHITESPACE)
-		for _, seg := range d.Path {
-			p.writeString(seg)
-			p.writeString(DOUBLE_COLON)
-		}
-		if len(d.Items) == 1 && len(d.Items[0].Path) == 1 && d.Items[0].Alias == "" {
-			p.writeString(d.Items[0].Path[0])
-		} else {
-			p.writeBytes(LBRACE)
-			for i, item := range d.Items {
-				if i > 0 {
-					p.writeBytes(COMMA, WHITESPACE)
-				}
-				for j, seg := range item.Path {
-					if j > 0 {
-						p.writeString(DOUBLE_COLON)
-					}
-					p.writeString(seg)
-				}
-				if item.Alias != "" {
-					p.writeBytes(WHITESPACE)
-					p.writeString(AS)
-					p.writeBytes(WHITESPACE)
-					p.writeString(item.Alias)
-				}
-			}
-			p.writeBytes(RBRACE)
-		}
-		p.writeBytes(SEMICOLON)
+		p.printImportDecl(d)
 	case *ast.RequiresDirective:
 		p.printAttrs(d.Attrs)
 		p.writeString(REQUIRES)
@@ -238,6 +208,40 @@ func (p *printer) printDecl(d ast.Decl) {
 		p.writeBytes(WHITESPACE)
 		p.printOptTypedIdent(&d.Ident)
 	}
+}
+
+func (p *printer) printImportDecl(d *ast.ImportDecl) {
+	p.writeString(IMPORT)
+	p.writeBytes(WHITESPACE)
+	for _, seg := range d.Path {
+		p.writeString(seg)
+	}
+	if len(d.Items) == 1 && len(d.Items[0].Path) == 1 && d.Items[0].Alias == "" {
+		p.writeString(d.Items[0].Path[0])
+	} else {
+		p.writeBytes(LBRACE)
+		for i, item := range d.Items {
+			p.writeString(DCOLON)
+			if i > 0 {
+				p.writeBytes(COMMA, WHITESPACE)
+			}
+			for j, seg := range item.Path {
+				if j > 0 {
+
+				}
+				p.writeString(seg)
+			}
+			if item.Alias != "" {
+				p.writeBytes(WHITESPACE)
+				p.writeString(AS)
+				p.writeString(DCOLON)
+				p.writeBytes(WHITESPACE)
+				p.writeString(item.Alias)
+			}
+		}
+		p.writeBytes(RBRACE)
+	}
+	p.writeBytes(SEMICOLON)
 }
 
 func (p *printer) printStructMember(m ast.StructMember) {
