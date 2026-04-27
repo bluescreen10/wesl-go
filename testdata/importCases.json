@@ -41,7 +41,7 @@
       "./main.wgsl": "import package::file1::foo; fn main() { foo(); } fn conflicted() { }",
       "./file1.wgsl": "fn foo() { conflicted(0); conflicted(1); } fn conflicted(a:i32) {}"
     },
-    "expectedWgsl": "fn main() { foo(); } fn conflicted() { } fn foo() { conflicted0(0); conflicted0(1); } fn conflicted0(a:i32) {}",
+    "expectedWgsl": "fn main() { foo(); } fn conflicted() { } fn foo() { conflicted0(0); conflicted0(1); } fn conflicted0(a: i32) { }",
     "underscoreWgsl": "fn main() { package_file1_foo(); } fn conflicted() { } fn package_file1_foo() { package_file1_conflicted(0); package_file1_conflicted(1); } fn package_file1_conflicted(a:i32) {}"
   },
   {
@@ -60,7 +60,7 @@
       "./file1.wgsl": "import package::file2::grand; fn mid() { grand(); }",
       "./file2.wgsl": "fn grand() { /* grandImpl */ }"
     },
-    "expectedWgsl": "fn main() { mid(); } fn grand() { return 2; } fn mid() { grand0(); } fn grand0() { /* grandImpl */ }",
+    "expectedWgsl": "fn main() { mid(); } fn grand() { return 2; } fn mid() { grand0(); } fn grand0() { }",
     "underscoreWgsl": "fn main() { package_file1_mid(); } fn grand() { return 2; } fn package_file1_mid() { package_file2_grand(); } fn package_file2_grand() { /* grandImpl */ }"
   },
   {
@@ -143,8 +143,8 @@
       "./main.wgsl": "import package::file1::AStruct; struct Base { b: i32 } fn foo() -> AStruct {var a:AStruct; return a;}",
       "./file1.wgsl": "struct Base { x: u32 } struct AStruct { x: Base }"
     },
-    "expectedWgsl": "struct Base { b: i32 } fn foo() -> AStruct {var a:AStruct; return a;} struct AStruct { x: Base0 } struct Base0 { x: u32 }",
-    "underscoreWgsl": "struct Base { b: i32 } fn foo() -> package_file1_AStruct {var a:package_file1_AStruct; return a;} struct package_file1_AStruct { x: package_file1_Base } struct package_file1_Base { x: u32 }"
+    "expectedWgsl": "struct Base { b: i32 } fn foo() -> AStruct { var a: AStruct; return a; } struct AStruct { x: Base0 } struct Base0 { x: u32 }",
+    "underscoreWgsl": "struct Base { b: i32 } fn foo() -> package_file1_AStruct { var a: package_file1_AStruct; return a; } struct package_file1_AStruct { x: package_file1_Base } struct package_file1_Base { x: u32 }"
   },
   {
     "name": "copy alias to output",
@@ -258,7 +258,7 @@
       "./file1.wgsl": "import package::file2::bar; fn foo() { bar(); } fn fie() {}",
       "./file2.wgsl": "import package::file1::fie; fn bar() { fie(); }"
     },
-    "expectedWgsl": "fn main() { foo(); } fn foo() { bar(); } fn bar() { fie(); } fn fie() {}",
+    "expectedWgsl": "fn main() { foo(); } fn foo() { bar(); } fn bar() { fie(); } fn fie() { }",
     "underscoreWgsl": "fn main() { package_file1_foo(); } fn package_file1_foo() { package_file2_bar(); } fn package_file2_bar() { package_file1_fie(); } fn package_file1_fie() {}"
   },
   {
@@ -303,7 +303,7 @@
       "./main.wgsl": "import package::rand::{initRNG}; struct FragmentInput { pixel: vec2f, frame: f32, } @fragment fn fragment(in: FragmentInput) -> vec4f { initRNG(in.pixel, in.frame); return vec4f(1.0, 0.0, 0.0, 1.0); }",
       "./rand.wgsl": "var<private> rngState: u32; fn initRNG(pixel: vec2u, frame: u32) { rngState = pixel.x + pixel.y * 1000u + frame * 100000u; }"
     },
-    "expectedWgsl": "struct FragmentInput { pixel: vec2f, frame: f32, } @fragment fn fragment(in: FragmentInput) -> vec4f { initRNG(in.pixel, in.frame); return vec4f(1.0, 0.0, 0.0, 1.0); } fn initRNG(pixel: vec2u, frame: u32) { rngState = pixel.x + pixel.y * 1000u + frame * 100000u; } var<private> rngState: u32;",
+    "expectedWgsl": "struct FragmentInput { pixel: vec2f, frame: f32 } @fragment fn fragment(in: FragmentInput) -> vec4f { initRNG(in.pixel, in.frame); return vec4f(1.0, 0.0, 0.0, 1.0); } fn initRNG(pixel: vec2u, frame: u32) { rngState = pixel.x + pixel.y * 1000u + frame * 100000u; } var<private> rngState: u32;",
     "underscoreWgsl": "struct FragmentInput { pixel: vec2f, frame: f32, } @fragment fn fragment(in: FragmentInput) -> vec4f { package_rand_initRNG(in.pixel, in.frame); return vec4f(1.0, 0.0, 0.0, 1.0); } fn package_rand_initRNG(pixel: vec2u, frame: u32) { package_rand_rngState = pixel.x + pixel.y * 1000u + frame * 100000u; } var<private> package_rand_rngState: u32;"
   },
   {

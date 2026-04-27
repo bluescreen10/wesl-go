@@ -428,7 +428,9 @@ func (p *parser) parseArgumentExpressionList() []ast.Expr {
 	for !p.at(tokenRParen) {
 		if len(args) > 0 {
 			p.expect(tokenComma)
-			continue
+			if p.at(tokenRParen) { // trailing comma
+				break
+			}
 		}
 		args = append(args, p.parseExpression())
 	}

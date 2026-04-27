@@ -24,11 +24,12 @@ type Resolver struct {
 	files              map[string]*ast.File
 	defines            map[string]bool
 	symbols            map[string]SymbolTable
-	taken              map[string]bool       // names currently in output namespace
-	assigned           map[fileSymbol]string // (file,sym) -> final output name; "" = in-progress (cycle guard)
-	emitted            map[fileSymbol]bool   // (file,sym) -> already written to output
-	moduleMap          map[string]string     // local module alias -> file path (for module-style imports)
-	constAssertedFiles map[string]bool       // files whose const_asserts have been emitted
+	taken              map[string]bool            // names currently in output namespace
+	assigned           map[fileSymbol]string      // (file,sym) -> final output name; "" = in-progress (cycle guard)
+	depMap             map[fileSymbol][]fileSymbol // cached deps per (actualFile,actualSym) from Phase 1
+	emitted            map[fileSymbol]bool         // (file,sym) -> already written to output
+	moduleMap          map[string]string           // local module alias -> file path (for module-style imports)
+	constAssertedFiles map[string]bool             // files whose const_asserts have been emitted
 	mainFile           string
 }
 
@@ -39,6 +40,7 @@ func NewResolver(files map[string]*ast.File, defines map[string]bool) *Resolver 
 		symbols:            make(map[string]SymbolTable),
 		taken:              make(map[string]bool),
 		assigned:           make(map[fileSymbol]string),
+		depMap:             make(map[fileSymbol][]fileSymbol),
 		emitted:            make(map[fileSymbol]bool),
 		moduleMap:          make(map[string]string),
 		constAssertedFiles: make(map[string]bool),
@@ -76,7 +78,7 @@ func (r *Resolver) Resolve(mainFile string) *ast.File {
 	}
 
 	// 4. Collect all imports: explicit ImportDecl items + inline package:: refs.
-	entries, mainRenames := r.collectImports(mainFile)
+	entries, mainRenames, deferredAliases := r.collectImports(mainFile)
 
 	// 5. Phase 1 – assign output names for primaries and all transitive deps.
 	for _, e := range entries {
@@ -89,6 +91,12 @@ func (r *Resolver) Resolve(mainFile string) *ast.File {
 		key := fileSymbol{e.srcFile, e.sym}
 		if out, ok := r.assigned[key]; ok && out != "" {
 			mainRenames[e.outputName] = out
+		}
+	}
+	// Resolve deferred aliases: same symbol imported under two different names.
+	for _, da := range deferredAliases {
+		if out, ok := r.assigned[da.key]; ok && out != "" {
+			mainRenames[da.alias] = out
 		}
 	}
 
@@ -127,12 +135,20 @@ func (r *Resolver) Resolve(mainFile string) *ast.File {
 
 // ── Import collection ─────────────────────────────────────────────────────────
 
-// collectImports returns importEntry list and a rename map for the main file.
-// The rename map covers both explicit aliases and inline qualified refs.
-func (r *Resolver) collectImports(filePath string) ([]importEntry, map[string]string) {
+// deferredAlias records an alias for a symbol that was imported more than once.
+// Its mapping must be resolved after Phase 1 (assignName) completes.
+type deferredAlias struct {
+	key   fileSymbol
+	alias string
+}
+
+// collectImports returns importEntry list, a rename map for the main file, and
+// deferred aliases for duplicate imports (same symbol imported under two names).
+func (r *Resolver) collectImports(filePath string) ([]importEntry, map[string]string, []deferredAlias) {
 	f := r.files[filePath]
 	renames := map[string]string{}
 	var entries []importEntry
+	var deferred []deferredAlias
 	seen := map[fileSymbol]bool{}
 
 	for _, d := range f.Decls {
@@ -153,10 +169,8 @@ func (r *Resolver) collectImports(filePath string) ([]importEntry, map[string]st
 			}
 			key := fileSymbol{srcFile, origSym}
 			if seen[key] {
-				// Duplicate import of same symbol: map this alias to the already-chosen name.
-				if out, ok := r.assigned[key]; ok && out != "" {
-					renames[desiredName] = out
-				}
+				// Same symbol imported twice: record the alias to resolve after Phase 1.
+				deferred = append(deferred, deferredAlias{key, desiredName})
 				continue
 			}
 			seen[key] = true
@@ -172,7 +186,7 @@ func (r *Resolver) collectImports(filePath string) ([]importEntry, map[string]st
 		r.collectInlineRefs(d, &entries, renames, seen)
 	}
 
-	return entries, renames
+	return entries, renames, deferred
 }
 
 // registerModuleImport records a module-style import: "import super::file1" or
@@ -444,10 +458,13 @@ func (r *Resolver) assignName(srcFile, sym, preferredName string) string {
 	r.assigned[actualKey] = chosen
 	r.taken[chosen] = true
 
-	// Recursively assign names for all dependencies.
+	// Cache deps and recursively assign names. Caching here (before recursion) lets
+	// emitDeps use the original dep names even after buildDecl mutates the cloned AST.
 	decl := r.findDeclInFile(r.files[actualFile], actualSym)
 	if decl != nil {
-		for _, dep := range r.collectDeps(decl, r.files[actualFile], actualFile) {
+		deps := r.collectDeps(decl, r.files[actualFile], actualFile)
+		r.depMap[actualKey] = deps
+		for _, dep := range deps {
 			r.assignName(dep.file, dep.sym, "")
 		}
 	}
@@ -752,11 +769,12 @@ func (r *Resolver) buildDecl(srcFile, sym string) ast.Decl {
 	if decl == nil {
 		return nil
 	}
-	outputName := r.assigned[fileSymbol{actualFile, actualSym}]
+	actualKey := fileSymbol{actualFile, actualSym}
+	outputName := r.assigned[actualKey]
 
-	// Build rename map: dep orig name → dep output name.
+	// Build rename map from cached deps (avoids re-deriving from a possibly-mutated decl).
 	depRenames := map[string]string{}
-	for _, dep := range r.collectDeps(decl, r.files[actualFile], actualFile) {
+	for _, dep := range r.depMap[actualKey] {
 		depOut := r.assigned[dep]
 		if depOut != "" && depOut != dep.sym {
 			depRenames[dep.sym] = depOut
@@ -793,16 +811,12 @@ func (r *Resolver) emitDeps(srcFile, sym string, output *[]ast.Decl) {
 	if actualFile == "" {
 		return
 	}
-	decl := r.findDeclInFile(r.files[actualFile], actualSym)
-	if decl == nil {
-		return
-	}
-	for _, dep := range r.collectDeps(decl, r.files[actualFile], actualFile) {
-		key := dep
-		if r.emitted[key] {
+	actualKey := fileSymbol{actualFile, actualSym}
+	for _, dep := range r.depMap[actualKey] {
+		if r.emitted[dep] {
 			continue
 		}
-		r.emitted[key] = true
+		r.emitted[dep] = true
 		r.emitFileConstAsserts(dep.file, output)
 		built := r.buildDecl(dep.file, dep.sym)
 		if built != nil {
