@@ -825,19 +825,12 @@ func (p *parser) parseVarOrValueStatement(attrs []ast.Attribute) *ast.VarOrValue
 
 		return &ast.VarOrValueStmt{Attrs: attrs, Keyword: "", Decl: &decl, Init: init}
 
-	case tokenLet:
+	case tokenLet, tokenConst:
 		p.next()
 		name, typ := p.parseOptionallyTypedIdent()
 		p.expect(tokenEqual)
 		init := p.parseExpression()
-		return &ast.VarOrValueStmt{Attrs: attrs, Keyword: "let", Name: name, Type: typ, Init: init}
-
-	case tokenConst:
-		p.next()
-		name, typ := p.parseOptionallyTypedIdent()
-		p.expect(tokenEqual)
-		init := p.parseExpression()
-		return &ast.VarOrValueStmt{Attrs: attrs, Keyword: "const", Name: name, Type: typ, Init: init}
+		return &ast.VarOrValueStmt{Attrs: attrs, Keyword: tok.val, Name: name, Type: typ, Init: init}
 
 	default:
 		p.unexpected(tok)
