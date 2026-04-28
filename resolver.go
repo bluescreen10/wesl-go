@@ -312,9 +312,7 @@ func (r *Resolver) collectInlineRefs(d ast.Decl, entries *[]importEntry, renames
 					walkStmt(s2)
 				}
 			}
-		case *ast.IncrementStmt:
-			walkExpr(st.LHS)
-		case *ast.DecrementStmt:
+		case *ast.IncDecStmt:
 			walkExpr(st.LHS)
 		}
 	}
@@ -679,9 +677,7 @@ func (r *Resolver) referencedNames(decl ast.Decl) []string {
 				nested := (*sc).push()
 				walkStmts(cl.Body.Stmts, &nested)
 			}
-		case *ast.IncrementStmt:
-			walkExpr(st.LHS, *sc)
-		case *ast.DecrementStmt:
+		case *ast.IncDecStmt:
 			walkExpr(st.LHS, *sc)
 		}
 	}
@@ -1033,9 +1029,7 @@ func (r *Resolver) rewriteDeclRefs(d ast.Decl, renames map[string]string) {
 				}
 
 			}
-		case *ast.IncrementStmt:
-			rewriteExpr(st.LHS)
-		case *ast.DecrementStmt:
+		case *ast.IncDecStmt:
 			rewriteExpr(st.LHS)
 		}
 	}

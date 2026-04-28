@@ -775,14 +775,9 @@ func (p *parser) parseExpressionStatement(attrs []ast.Attribute) ast.Stmt {
 	expr := p.parsePostfixExpr()
 
 	switch p.peek().typ {
-	case tokenPlusPlus:
-		p.next()
-		return &ast.IncrementStmt{Attrs: attrs, LHS: expr}
-
-	case tokenMinusMinus:
-		p.next()
-		return &ast.DecrementStmt{Attrs: attrs, LHS: expr}
-
+	case tokenPlusPlus, tokenMinusMinus:
+		tok := p.next()
+		return &ast.IncDecStmt{Attrs: attrs, LHS: expr, Op: tok.val}
 	case tokenEqual:
 		p.next()
 		return &ast.AssignmentStmt{Attrs: attrs, LHS: expr, Op: "=", RHS: p.parseExpression()}

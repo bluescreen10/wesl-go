@@ -29,8 +29,6 @@ const (
 	EQUAL      = '='
 
 	ARROW = "->"
-	DECR  = "--"
-	INCR  = "++"
 
 	// Keywords
 	DIAGNOSTIC   = "diagnostic"
@@ -342,10 +340,6 @@ func (p *printer) printStmt(s ast.Stmt) {
 		p.printCompoundStmt(s.Body)
 	case *ast.CompoundStmt:
 		p.printCompoundStmt(s)
-	case *ast.DecrementStmt:
-		p.printAttrs(s.Attrs)
-		p.printExpr(s.LHS)
-		p.writeString(DECR)
 	case *ast.DiscardStmt:
 		p.printAttrs(s.Attrs)
 		p.writeString(DISCARD)
@@ -377,10 +371,10 @@ func (p *printer) printStmt(s ast.Stmt) {
 		p.printStmt(s.Update)
 		p.writeBytes(RPAREN, WHITESPACE)
 		p.printCompoundStmt(s.Body)
-	case *ast.IncrementStmt:
+	case *ast.IncDecStmt:
 		p.printAttrs(s.Attrs)
 		p.printExpr(s.LHS)
-		p.writeString(INCR)
+		p.writeString(s.Op)
 	case *ast.LoopStmt:
 		p.printAttrs(s.Attrs)
 		p.writeString(LOOP)

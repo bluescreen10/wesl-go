@@ -213,9 +213,10 @@ type (
 	IfAttrStmt IfAttr[Stmt]
 
 	// Increment
-	IncrementStmt struct {
+	IncDecStmt struct {
 		Attrs []Attribute
 		LHS   Expr
+		Op    string
 	}
 
 	// Loop
@@ -262,14 +263,13 @@ func (*CompoundStmt) stmtNode()    {}
 func (*ConstAssertStmt) stmtNode() {}
 func (*ContinueStmt) stmtNode()    {}
 func (*ContinuingStmt) stmtNode()  {}
-func (*DecrementStmt) stmtNode()   {}
 func (*DiscardStmt) stmtNode()     {}
 func (*EmptyStmt) stmtNode()       {}
 func (*FnCallStmt) stmtNode()      {}
 func (*ForStmt) stmtNode()         {}
 func (*IfStmt) stmtNode()          {}
 func (*IfAttrStmt) stmtNode()      {}
-func (*IncrementStmt) stmtNode()   {}
+func (*IncDecStmt) stmtNode()      {}
 func (*LoopStmt) stmtNode()        {}
 func (*ReturnStmt) stmtNode()      {}
 func (*SwitchStmt) stmtNode()      {}
