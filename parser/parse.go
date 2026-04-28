@@ -168,7 +168,9 @@ func (p *parser) parseAttributeExpressionList() []ast.Expr {
 	for !p.at(tokenRParen) {
 		if len(args) > 0 {
 			p.expect(tokenComma)
-			continue
+			if p.at(tokenRParen) {
+				break
+			}
 		}
 
 		args = append(args, p.parseExpression())
@@ -657,8 +659,12 @@ func (p *parser) parseStatementBody(attrs []ast.Attribute) ast.Stmt {
 		return p.parseForStatement(attrs)
 	case tokenWhile:
 		return p.parseWhileStatement(attrs)
-	case tokenVar, tokenLet, tokenConst:
-		s := p.parseVarOrValueStatement(attrs)
+	case tokenVar:
+		s := p.parseVarStatement(attrs)
+		p.expect(tokenSemicolon)
+		return s
+	case tokenLet, tokenConst:
+		s := p.parseValStatement(attrs)
 		p.expect(tokenSemicolon)
 		return s
 	case tokenConstAssert:
@@ -795,39 +801,35 @@ func (p *parser) isCompoundAssignOp() (string, bool) {
 	return "", false
 }
 
-// parseVarOrValueStatement parses (without the trailing ';'):
-//
 //	variable_or_value_statement :
 //	  variable_decl
 //	| variable_decl '=' expression
-//	| attribute* 'let'   optionally_typed_ident '=' expression
-//	| attribute* 'const' optionally_typed_ident '=' expression
-func (p *parser) parseVarOrValueStatement(attrs []ast.Attribute) ast.Stmt {
-	switch tok := p.peek(); tok.typ {
-	case tokenVar:
-		p.next()
-		var templateArgs []ast.Expr
-		if p.at(tokenLAngle) {
-			templateArgs = p.parseTemplateList()
-		}
-		name, typ := p.parseOptionallyTypedIdent()
-		var init ast.Expr
-		if p.accept(tokenEqual) {
-			init = p.parseExpression()
-		}
-		return &ast.VarStmt{Attrs: attrs, TemplateArgs: templateArgs, Name: name, Type: typ, Init: init}
-
-	case tokenLet, tokenConst:
-		p.next()
-		name, typ := p.parseOptionallyTypedIdent()
-		p.expect(tokenEqual)
-		init := p.parseExpression()
-		return &ast.ValStmt{Attrs: attrs, Keyword: tok.val, Name: name, Type: typ, Init: init}
-
-	default:
-		p.unexpected(tok)
-		return nil
+//
+// parseVarStatement parses a varable declaration statement
+func (p *parser) parseVarStatement(attrs []ast.Attribute) *ast.VarStmt {
+	p.expect(tokenVar)
+	var templateArgs []ast.Expr
+	if p.at(tokenLAngle) {
+		templateArgs = p.parseTemplateList()
 	}
+	name, typ := p.parseOptionallyTypedIdent()
+	var init ast.Expr
+	if p.accept(tokenEqual) {
+		init = p.parseExpression()
+	}
+	return &ast.VarStmt{Attrs: attrs, TemplateArgs: templateArgs, Name: name, Type: typ, Init: init}
+}
+
+//	attribute* 'let'   optionally_typed_ident '=' expression
+//	| attribute* 'const' optionally_typed_ident '=' expression
+//
+// parseValStatement parses a value declaration
+func (p *parser) parseValStatement(attrs []ast.Attribute) *ast.ValStmt {
+	tok := p.expectOneOf(tokenConst, tokenLet)
+	name, typ := p.parseOptionallyTypedIdent()
+	p.expect(tokenEqual)
+	init := p.parseExpression()
+	return &ast.ValStmt{Attrs: attrs, Keyword: tok.val, Name: name, Type: typ, Init: init}
 }
 
 // attribute* '{' statement* '}'
@@ -904,8 +906,7 @@ func (p *parser) parseIfAttrClause() *ast.IfAttrClause {
 	then := p.parseClause(attrs)
 
 	var els ast.Clause
-	if p.at(tokenElseAttr) {
-		p.expect(tokenElseAttr)
+	if p.accept(tokenElseAttr) {
 		attrs := p.parseAttributes()
 		els = p.parseClause(attrs)
 	}
@@ -925,10 +926,9 @@ func (p *parser) parseCaseSelectors() []ast.Expr {
 		} else {
 			selectors = append(selectors, p.parseExpression())
 		}
-		if !p.at(tokenComma) {
+		if !p.accept(tokenComma) {
 			break
 		}
-		p.accept(tokenComma)
 		next := p.peek()
 		if next.typ == tokenColon || next.typ == tokenLBrace {
 			break
@@ -949,8 +949,7 @@ func (p *parser) parseIfStatement(attrs []ast.Attribute) *ast.IfStmt {
 
 	if p.accept(tokenElse) {
 		if p.at(tokenIf) {
-			innerAttrs := p.parseAttributes()
-			stmt.ElseIf = p.parseIfStatement(innerAttrs)
+			stmt.ElseIf = p.parseIfStatement(nil)
 		} else {
 			stmt.Else = p.parseCompoundStatement(nil)
 		}
@@ -989,8 +988,10 @@ func (p *parser) parseForStatement(attrs []ast.Attribute) *ast.ForStmt {
 	if !p.at(tokenSemicolon) {
 		initAttrs := p.parseAttributes()
 		switch p.peek().typ {
-		case tokenVar, tokenLet, tokenConst:
-			init = p.parseVarOrValueStatement(initAttrs)
+		case tokenVar:
+			init = p.parseVarStatement(initAttrs)
+		case tokenLet, tokenConst:
+			init = p.parseValStatement(initAttrs)
 		default:
 			init = p.parseExpressionStatement(initAttrs)
 		}
@@ -1223,7 +1224,7 @@ func (p *parser) parseTemplateList() []ast.Expr {
 //     which treats '<' as a template opener unconditionally — avoiding the need
 //     for templateDepth to suppress '<' for that nested parse.
 func (p *parser) parseTemplateArg() ast.Expr {
-	if p.peek().typ == tokenIdent {
+	if p.at(tokenIdent) {
 		return p.parseTypeSpecifier().AsExpr()
 	}
 	return p.parseExpression()
