@@ -65,7 +65,7 @@ func resolveStructDecl(d *ast.StructDecl, defines map[string]bool) *ast.StructDe
 	out := &ast.StructDecl{Attrs: d.Attrs, Name: d.Name}
 	for _, m := range d.Members {
 		switch m := m.(type) {
-		case *ast.IfAttrStructField:
+		case *ast.IfAttrStructMember:
 			if evalCondition(m.Cond, defines) {
 				out.Members = append(out.Members, m.Then)
 			} else if m.Else != nil {
@@ -178,7 +178,7 @@ func resolveSwitchStmt(s *ast.SwitchStmt, defines map[string]bool) *ast.SwitchSt
 	return out
 }
 
-func resolveClause(c ast.SwitchClause, defines map[string]bool) ast.SwitchClause {
+func resolveClause(c ast.Clause, defines map[string]bool) ast.Clause {
 	switch c := c.(type) {
 	case *ast.CaseClause:
 		return &ast.CaseClause{

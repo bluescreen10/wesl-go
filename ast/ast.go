@@ -4,7 +4,7 @@ type Node interface {
 	//node()
 }
 
-// type SwitchClause interface {
+// type Clause interface {
 // 	Node
 // }
 
@@ -34,6 +34,12 @@ type (
 		Control DiagnosticControl
 	}
 
+	// Diagnostic Control
+	DiagnosticControl struct {
+		Severity string
+		RuleName string
+	}
+
 	// Enable Directive
 	EnableDirective struct {
 		Attrs      []Attribute
@@ -49,6 +55,22 @@ type (
 		ReturnType  *TypeSpecifier
 		Body        *CompoundStmt
 	}
+
+	// Function Param
+	Param interface {
+		Node
+		paramNode()
+	}
+
+	// Param
+	FuncParam struct {
+		Name  string
+		Type  TypeSpecifier
+		Attrs []Attribute
+	}
+
+	// @if Param
+	IfAttrParam IfAttr[Param]
 
 	// Global Val
 	GlobalValDecl struct {
@@ -71,16 +93,16 @@ type (
 	// @if
 	IfAttrDecl IfAttr[Decl]
 
-	// Import declaration: import a::b::c::{ d::e, f as g };
+	// Import declaration
 	ImportDecl struct {
-		Path  []string     // prefix segments, e.g. ["a", "b", "c"]
-		Items []ImportItem // items being imported
+		Path  []string
+		Items []ImportItem
 	}
 
-	// ImportItem is one entry in an import, e.g. "d::e" or "f as g"
+	// ImportItem is one entry in an import
 	ImportItem struct {
-		Path  []string // path segments; last element is the imported name
-		Alias string   // optional alias (empty if none)
+		Path  []string
+		Alias string
 	}
 
 	// Reqiures Directive
@@ -93,8 +115,24 @@ type (
 	StructDecl struct {
 		Name    string
 		Attrs   []Attribute
-		Members []StructMember
+		Members []Member
 	}
+
+	// Struct Member
+	Member interface {
+		Node
+		structMemberNode()
+	}
+
+	// Struct Field
+	StructMember struct {
+		Name  string
+		Attrs []Attribute
+		Type  TypeSpecifier
+	}
+
+	// @if Struct Member
+	IfAttrStructMember IfAttr[Member]
 
 	// Type Alias
 	TypeAliasDecl struct {
@@ -115,6 +153,12 @@ func (*IfAttrDecl) declNode()          {}
 func (*RequiresDirective) declNode()   {}
 func (*StructDecl) declNode()          {}
 func (*TypeAliasDecl) declNode()       {}
+
+func (*IfAttrStructMember) structMemberNode() {}
+func (*StructMember) structMemberNode()       {}
+
+func (*FuncParam) paramNode()   {}
+func (*IfAttrParam) paramNode() {}
 
 // ----------------------------------------------------------------------------
 // Stmt
@@ -181,12 +225,6 @@ type (
 	// Empty
 	EmptyStmt struct{}
 
-	// Function Call
-	FnCallStmt struct {
-		Attrs []Attribute
-		Call  CallExpr
-	}
-
 	// For
 	ForStmt struct {
 		Attrs  []Attribute
@@ -194,6 +232,12 @@ type (
 		Cond   Expr
 		Update Stmt
 		Body   *CompoundStmt
+	}
+
+	// Function Call
+	FuncCallStmt struct {
+		Attrs []Attribute
+		Call  CallExpr
 	}
 
 	// If
@@ -232,8 +276,24 @@ type (
 	SwitchStmt struct {
 		Attrs   []Attribute
 		Expr    Expr
-		Clauses []SwitchClause
+		Clauses []Clause
 	}
+
+	// Switch clauses
+	Clause interface {
+		Node
+		switchClauseNode()
+	}
+
+	// Case
+	CaseClause struct {
+		Attrs     []Attribute
+		Selectors []Expr
+		Body      *CompoundStmt
+	}
+
+	// @if
+	IfAttrClause IfAttr[Clause]
 
 	// Local var statement
 	VarStmt struct {
@@ -270,8 +330,8 @@ func (*ContinueStmt) stmtNode()    {}
 func (*ContinuingStmt) stmtNode()  {}
 func (*DiscardStmt) stmtNode()     {}
 func (*EmptyStmt) stmtNode()       {}
-func (*FnCallStmt) stmtNode()      {}
 func (*ForStmt) stmtNode()         {}
+func (*FuncCallStmt) stmtNode()    {}
 func (*IfStmt) stmtNode()          {}
 func (*IfAttrStmt) stmtNode()      {}
 func (*IncDecStmt) stmtNode()      {}
@@ -281,6 +341,9 @@ func (*SwitchStmt) stmtNode()      {}
 func (*VarStmt) stmtNode()         {}
 func (*ValStmt) stmtNode()         {}
 func (*WhileStmt) stmtNode()       {}
+
+func (*IfAttrClause) switchClauseNode() {}
+func (*CaseClause) switchClauseNode()   {}
 
 // ----------------------------------------------------------------------------
 // Expr
@@ -367,33 +430,10 @@ func (*UnaryExpr) exprNode()  {}
 // Type, Attributes, Identifiers, Values, etc.
 
 type (
-
 	// Attribute
 	Attribute struct {
 		Name string
 		Args []Expr
-	}
-
-	// Diagnostic Control
-	DiagnosticControl struct {
-		Severity string
-		RuleName string
-	}
-
-	// Function Param
-	Param interface {
-		Node
-		paramNode()
-	}
-
-	// @if Param
-	IfAttrParam IfAttr[Param]
-
-	// Param
-	FuncParam struct {
-		Name  string
-		Type  TypeSpecifier
-		Attrs []Attribute
 	}
 
 	// Type
@@ -401,48 +441,7 @@ type (
 		Name         string
 		TemplateArgs []Expr
 	}
-
-	// Struct Member
-	StructMember interface {
-		Node
-		structMemberNode()
-	}
-
-	// Struct Field
-	StructField struct {
-		Name  string
-		Attrs []Attribute
-		Type  TypeSpecifier
-	}
-
-	// @if Struct Member
-	IfAttrStructField IfAttr[StructMember]
-
-	// Switch clauses
-	SwitchClause interface {
-		Node
-		switchClauseNode()
-	}
-
-	// Case
-	CaseClause struct {
-		Attrs     []Attribute
-		Selectors []Expr
-		Body      *CompoundStmt
-	}
-
-	// @if
-	IfAttrClause IfAttr[SwitchClause]
 )
-
-func (*IfAttrStructField) structMemberNode() {}
-func (*StructField) structMemberNode()       {}
-
-func (*IfAttrClause) switchClauseNode() {}
-func (*CaseClause) switchClauseNode()   {}
-
-func (*FuncParam) paramNode()   {}
-func (*IfAttrParam) paramNode() {}
 
 type File struct {
 	Decls []Decl

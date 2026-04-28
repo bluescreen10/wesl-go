@@ -324,12 +324,12 @@ func (p *parser) parseStructDecl(attrs []ast.Attribute) *ast.StructDecl {
 	tok := p.expect(tokenIdent)
 
 	p.expect(tokenLBrace)
-	var members []ast.StructMember
+	var members []ast.Member
 	for !p.at(tokenRBrace) {
 		if p.at(tokenIfAttr) {
-			members = append(members, p.parseIfAttrStructField())
+			members = append(members, p.parseIfAttrStructMember())
 		} else {
-			members = append(members, p.parseStructField())
+			members = append(members, p.parseStructMember())
 		}
 		p.accept(tokenComma)
 	}
@@ -338,26 +338,26 @@ func (p *parser) parseStructDecl(attrs []ast.Attribute) *ast.StructDecl {
 	return &ast.StructDecl{Attrs: attrs, Name: tok.val, Members: members}
 }
 
-func (p *parser) parseStructField() *ast.StructField {
+func (p *parser) parseStructMember() *ast.StructMember {
 	attrs := p.parseAttributes()
 	tok := p.expect(tokenIdent)
 	p.expect(tokenColon)
 	typ := p.parseTypeSpecifier()
-	return &ast.StructField{Attrs: attrs, Name: tok.val, Type: typ}
+	return &ast.StructMember{Attrs: attrs, Name: tok.val, Type: typ}
 }
 
-func (p *parser) parseIfAttrStructField() *ast.IfAttrStructField {
+func (p *parser) parseIfAttrStructMember() *ast.IfAttrStructMember {
 	p.expect(tokenIfAttr)
 	cond := p.parseExpression()
-	then := p.parseStructField()
+	then := p.parseStructMember()
 
-	var els ast.StructMember
+	var els ast.Member
 	if p.accept(tokenComma) {
 		if p.accept(tokenElseAttr) {
-			els = p.parseStructField()
+			els = p.parseStructMember()
 		}
 	}
-	return &ast.IfAttrStructField{Cond: cond, Then: then, Else: els}
+	return &ast.IfAttrStructMember{Cond: cond, Then: then, Else: els}
 }
 
 //	attribute* 'alias' ident '=' type_specifier
@@ -782,7 +782,7 @@ func (p *parser) parseExpressionStatement(attrs []ast.Attribute) ast.Stmt {
 		if !ok {
 			p.unexpected(p.peek())
 		}
-		return &ast.FnCallStmt{Attrs: attrs, Call: *call}
+		return &ast.FuncCallStmt{Attrs: attrs, Call: *call}
 	}
 }
 
@@ -849,7 +849,7 @@ func (p *parser) parseSwitchStatement(attrs []ast.Attribute) *ast.SwitchStmt {
 	expr := p.parseExpression()
 
 	p.expect(tokenLBrace)
-	var clauses []ast.SwitchClause
+	var clauses []ast.Clause
 	for !p.at(tokenRBrace) {
 		clauseAttrs := p.parseAttributes()
 
@@ -857,7 +857,7 @@ func (p *parser) parseSwitchStatement(attrs []ast.Attribute) *ast.SwitchStmt {
 		case tokenIfAttr:
 			clauses = append(clauses, p.parseIfAttrClause())
 		default:
-			clauses = append(clauses, p.parseSwitchClause(clauseAttrs))
+			clauses = append(clauses, p.parseClause(clauseAttrs))
 		}
 	}
 	p.expect(tokenRBrace)
@@ -866,8 +866,8 @@ func (p *parser) parseSwitchStatement(attrs []ast.Attribute) *ast.SwitchStmt {
 
 //	attribute* 'case' case_selectors ':'? compound_statement
 //
-// parseSwitchClause
-func (p *parser) parseSwitchClause(attrs []ast.Attribute) ast.SwitchClause {
+// parseClause
+func (p *parser) parseClause(attrs []ast.Attribute) ast.Clause {
 	switch tok := p.peek(); tok.typ {
 	case tokenCase:
 		return p.parseCaseClause(attrs)
@@ -901,13 +901,13 @@ func (p *parser) parseIfAttrClause() *ast.IfAttrClause {
 	p.expect(tokenIfAttr)
 	cond := p.parseExpression()
 	attrs := p.parseAttributes()
-	then := p.parseSwitchClause(attrs)
+	then := p.parseClause(attrs)
 
-	var els ast.SwitchClause
+	var els ast.Clause
 	if p.at(tokenElseAttr) {
 		p.expect(tokenElseAttr)
 		attrs := p.parseAttributes()
-		els = p.parseSwitchClause(attrs)
+		els = p.parseClause(attrs)
 	}
 	return &ast.IfAttrClause{Cond: cond, Then: then, Else: els}
 }

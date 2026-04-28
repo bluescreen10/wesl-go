@@ -113,7 +113,7 @@ func CollectImplicitImports(f *ast.File) []ImplicitImport {
 			return
 		}
 		switch st := s.(type) {
-		case *ast.FnCallStmt:
+		case *ast.FuncCallStmt:
 			walk(&st.Call)
 		case *ast.AssignmentStmt:
 			walk(st.LHS)

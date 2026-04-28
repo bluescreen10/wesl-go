@@ -200,7 +200,7 @@ func (p *printer) printDecl(d ast.Decl) {
 			if i > 0 {
 				p.writeBytes(COMMA, WHITESPACE)
 			}
-			p.printStructMember(m)
+			p.printMember(m)
 		}
 		p.writeBytes(WHITESPACE, RBRACE)
 	case *ast.TypeAliasDecl:
@@ -248,19 +248,19 @@ func (p *printer) printImportDecl(d *ast.ImportDecl) {
 	p.writeBytes(SEMICOLON)
 }
 
-func (p *printer) printStructMember(m ast.StructMember) {
+func (p *printer) printMember(m ast.Member) {
 	switch m := m.(type) {
-	case *ast.IfAttrStructField:
+	case *ast.IfAttrStructMember:
 		p.writeString(IF_ATTR)
 		p.printExpr(m.Cond)
 		p.writeBytes(WHITESPACE)
-		p.printStructMember(m.Then)
+		p.printMember(m.Then)
 		if m.Else != nil {
 			p.writeString(ELSE_ATTR)
 			p.writeBytes(WHITESPACE)
-			p.printStructMember(m.Else)
+			p.printMember(m.Else)
 		}
-	case *ast.StructField:
+	case *ast.StructMember:
 		p.printAttrs(m.Attrs)
 		p.writeString(m.Name)
 		p.writeBytes(COLON, WHITESPACE)
@@ -363,7 +363,7 @@ func (p *printer) printStmt(s ast.Stmt) {
 		}
 	case *ast.IfStmt:
 		p.printIfStmt(s)
-	case *ast.FnCallStmt:
+	case *ast.FuncCallStmt:
 		p.printAttrs(s.Attrs)
 		p.printCallExpr(&s.Call)
 	case *ast.ForStmt:
@@ -399,7 +399,7 @@ func (p *printer) printStmt(s ast.Stmt) {
 		p.writeBytes(WHITESPACE)
 		p.printExpr(s.Expr)
 		p.writeBytes(WHITESPACE, LBRACE, WHITESPACE)
-		p.printSwitchClauses(s.Clauses)
+		p.printClauses(s.Clauses)
 		p.writeBytes(WHITESPACE, RBRACE)
 	case *ast.VarStmt:
 		p.printAttrs(s.Attrs)
@@ -438,13 +438,13 @@ func (p *printer) printStmt(s ast.Stmt) {
 	}
 }
 
-func (p *printer) printSwitchClauses(clauses []ast.SwitchClause) {
+func (p *printer) printClauses(clauses []ast.Clause) {
 	for _, c := range clauses {
-		p.printSwitchClause(c)
+		p.printClause(c)
 	}
 }
 
-func (p *printer) printSwitchClause(c ast.SwitchClause) {
+func (p *printer) printClause(c ast.Clause) {
 	switch c := c.(type) {
 	case *ast.CaseClause:
 		p.printAttrs(c.Attrs)
@@ -466,11 +466,11 @@ func (p *printer) printSwitchClause(c ast.SwitchClause) {
 		p.writeString(IF_ATTR)
 		p.printExpr(c.Cond)
 		p.writeBytes(WHITESPACE)
-		p.printSwitchClause(c.Then)
+		p.printClause(c.Then)
 		if c.Else != nil {
 			p.writeString(ELSE_ATTR)
 			p.writeBytes(WHITESPACE)
-			p.printSwitchClause(c.Else)
+			p.printClause(c.Else)
 		}
 	}
 }

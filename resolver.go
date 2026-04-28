@@ -260,7 +260,7 @@ func (r *Resolver) collectInlineRefs(d ast.Decl, entries *[]importEntry, renames
 			return
 		}
 		switch st := s.(type) {
-		case *ast.FnCallStmt:
+		case *ast.FuncCallStmt:
 			walkExpr(&st.Call)
 		case *ast.AssignmentStmt:
 			walkExpr(st.LHS)
@@ -605,7 +605,7 @@ func (r *Resolver) referencedNames(decl ast.Decl) []string {
 			return
 		}
 		switch st := s.(type) {
-		case *ast.FnCallStmt:
+		case *ast.FuncCallStmt:
 			walkExpr(&st.Call, *sc)
 		case *ast.AssignmentStmt:
 			walkExpr(st.LHS, *sc)
@@ -708,7 +708,7 @@ func (r *Resolver) referencedNames(decl ast.Decl) []string {
 	case *ast.StructDecl:
 		sc := newScopeStack()
 		for _, m := range dd.Members {
-			if sf, ok := m.(*ast.StructField); ok {
+			if sf, ok := m.(*ast.StructMember); ok {
 				addName(sf.Type.Name, sc)
 				for _, ta := range sf.Type.TemplateArgs {
 					walkExpr(ta, sc)
@@ -963,7 +963,7 @@ func (r *Resolver) rewriteDeclRefs(d ast.Decl, renames map[string]string) {
 			return
 		}
 		switch st := s.(type) {
-		case *ast.FnCallStmt:
+		case *ast.FuncCallStmt:
 			rewriteExpr(&st.Call)
 		case *ast.AssignmentStmt:
 			rewriteExpr(st.LHS)
@@ -1040,7 +1040,7 @@ func (r *Resolver) rewriteDeclRefs(d ast.Decl, renames map[string]string) {
 		}
 	case *ast.StructDecl:
 		for _, m := range dd.Members {
-			if sf, ok := m.(*ast.StructField); ok {
+			if sf, ok := m.(*ast.StructMember); ok {
 				renameTS(&sf.Type)
 			}
 		}
