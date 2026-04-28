@@ -29,8 +29,8 @@ func resolveDecl(d ast.Decl, defines map[string]bool) ast.Decl {
 		}
 		return nil
 
-	case *ast.FnDecl:
-		return resolveFnDecl(d, defines)
+	case *ast.FuncDecl:
+		return resolveFuncDecl(d, defines)
 
 	case *ast.StructDecl:
 		return resolveStructDecl(d, defines)
@@ -41,9 +41,9 @@ func resolveDecl(d ast.Decl, defines map[string]bool) ast.Decl {
 	}
 }
 
-// resolveFnDecl resolves @if nodes inside a function body.
-func resolveFnDecl(d *ast.FnDecl, defines map[string]bool) *ast.FnDecl {
-	out := &ast.FnDecl{Attrs: d.Attrs, Name: d.Name, ReturnAttrs: d.ReturnAttrs, ReturnType: d.ReturnType}
+// resolveFuncDecl resolves @if nodes inside a function body.
+func resolveFuncDecl(d *ast.FuncDecl, defines map[string]bool) *ast.FuncDecl {
+	out := &ast.FuncDecl{Attrs: d.Attrs, Name: d.Name, ReturnAttrs: d.ReturnAttrs, ReturnType: d.ReturnType}
 	for _, p := range d.Params {
 		switch p := p.(type) {
 		case *ast.IfAttrParam:

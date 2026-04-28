@@ -24,8 +24,8 @@ type Resolver struct {
 	files              map[string]*ast.File
 	defines            map[string]bool
 	symbols            map[string]SymbolTable
-	taken              map[string]bool            // names currently in output namespace
-	assigned           map[fileSymbol]string      // (file,sym) -> final output name; "" = in-progress (cycle guard)
+	taken              map[string]bool             // names currently in output namespace
+	assigned           map[fileSymbol]string       // (file,sym) -> final output name; "" = in-progress (cycle guard)
 	depMap             map[fileSymbol][]fileSymbol // cached deps per (actualFile,actualSym) from Phase 1
 	emitted            map[fileSymbol]bool         // (file,sym) -> already written to output
 	moduleMap          map[string]string           // local module alias -> file path (for module-style imports)
@@ -326,7 +326,7 @@ func (r *Resolver) collectInlineRefs(d ast.Decl, entries *[]importEntry, renames
 	}
 
 	switch dd := d.(type) {
-	case *ast.FnDecl:
+	case *ast.FuncDecl:
 		if dd.Body != nil {
 			for _, s := range dd.Body.Stmts {
 				walkStmt(s)
@@ -698,11 +698,11 @@ func (r *Resolver) referencedNames(decl ast.Decl) []string {
 	}
 
 	switch dd := decl.(type) {
-	case *ast.FnDecl:
+	case *ast.FuncDecl:
 		// Function scope: parameters are defined before the body.
 		sc := newScopeStack()
 		for _, p := range dd.Params {
-			if fp, ok := p.(*ast.FnParam); ok {
+			if fp, ok := p.(*ast.FuncParam); ok {
 				addName(fp.Type.Name, sc)
 				for _, ta := range fp.Type.TemplateArgs {
 					walkExpr(ta, sc)
@@ -844,7 +844,7 @@ func (r *Resolver) makeUnique(base string) string {
 
 func (r *Resolver) declName(d ast.Decl) string {
 	switch dd := d.(type) {
-	case *ast.FnDecl:
+	case *ast.FuncDecl:
 		return dd.Name
 	case *ast.StructDecl:
 		return dd.Name
@@ -875,7 +875,7 @@ func (r *Resolver) findDeclInFile(f *ast.File, sym string) ast.Decl {
 // cloneDecl does a shallow structural copy sufficient for renaming.
 func (r *Resolver) cloneDecl(d ast.Decl) ast.Decl {
 	switch dd := d.(type) {
-	case *ast.FnDecl:
+	case *ast.FuncDecl:
 		c := *dd
 		return &c
 	case *ast.StructDecl:
@@ -900,7 +900,7 @@ func (r *Resolver) cloneDecl(d ast.Decl) ast.Decl {
 // renameDeclHeader sets the declaration's own name to outputName.
 func (r *Resolver) renameDeclHeader(d ast.Decl, outputName string) {
 	switch dd := d.(type) {
-	case *ast.FnDecl:
+	case *ast.FuncDecl:
 		dd.Name = outputName
 	case *ast.StructDecl:
 		dd.Name = outputName
@@ -1057,9 +1057,9 @@ func (r *Resolver) rewriteDeclRefs(d ast.Decl, renames map[string]string) {
 	}
 
 	switch dd := d.(type) {
-	case *ast.FnDecl:
+	case *ast.FuncDecl:
 		for _, p := range dd.Params {
-			if fp, ok := p.(*ast.FnParam); ok {
+			if fp, ok := p.(*ast.FuncParam); ok {
 				renameTS(&fp.Type)
 			}
 		}

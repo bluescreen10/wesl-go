@@ -138,7 +138,7 @@ func (p *printer) printDecl(d ast.Decl) {
 			p.writeString(e)
 		}
 		p.writeBytes(SEMICOLON)
-	case *ast.FnDecl:
+	case *ast.FuncDecl:
 		p.printFuncDecl(d)
 	case *ast.GlobalValueDecl:
 		p.printAttrs(d.Attrs)
@@ -519,7 +519,7 @@ func (p *printer) printFile(n *ast.File) {
 	}
 }
 
-func (p *printer) printFuncDecl(f *ast.FnDecl) {
+func (p *printer) printFuncDecl(f *ast.FuncDecl) {
 	p.printAttrs(f.Attrs)
 	p.writeString(FUNC)
 	p.writeBytes(WHITESPACE)
@@ -591,7 +591,7 @@ func (p *printer) printParam(param ast.Param) {
 			p.writeBytes(WHITESPACE)
 			p.printParam(param.Else)
 		}
-	case *ast.FnParam:
+	case *ast.FuncParam:
 		p.printAttrs(param.Attrs)
 		p.writeString(param.Name)
 		p.writeBytes(COLON, WHITESPACE)

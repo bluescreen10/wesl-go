@@ -51,7 +51,7 @@ const (
 	tokenComment
 	tokenIdent
 	tokenAttr
-	tokenFn
+	tokenFunc
 	tokenArrow
 	tokenDot
 	tokenTrue
@@ -137,7 +137,7 @@ var keyword = map[string]tokenType{
 	"as":           tokenAs,
 	"super":        tokenSuper,
 	"package":      tokenPackage,
-	"fn":           tokenFn,
+	"fn":           tokenFunc,
 	"true":         tokenTrue,
 	"false":        tokenFalse,
 	"diagnostic":   tokenDiagnostic,

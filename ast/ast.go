@@ -41,7 +41,7 @@ type (
 	}
 
 	// Function
-	FnDecl struct {
+	FuncDecl struct {
 		Name        string
 		Attrs       []Attribute
 		Params      []Param
@@ -69,7 +69,7 @@ type (
 
 	// Import declaration: import a::b::c::{ d::e, f as g };
 	ImportDecl struct {
-		Path  []string    // prefix segments, e.g. ["a", "b", "c"]
+		Path  []string     // prefix segments, e.g. ["a", "b", "c"]
 		Items []ImportItem // items being imported
 	}
 
@@ -110,7 +110,7 @@ type (
 func (*ConstAssertDecl) declNode()     {}
 func (*DiagnosticDirective) declNode() {}
 func (*EnableDirective) declNode()     {}
-func (*FnDecl) declNode()              {}
+func (*FuncDecl) declNode()            {}
 func (*GlobalValueDecl) declNode()     {}
 func (*GlobalVariableDecl) declNode()  {}
 func (*ImportDecl) declNode()          {}
@@ -390,7 +390,7 @@ type (
 	IfAttrParam IfAttr[Param]
 
 	// Param
-	FnParam struct {
+	FuncParam struct {
 		Name  string
 		Type  TypeSpecifier
 		Attrs []Attribute
@@ -448,7 +448,7 @@ func (*IfAttrClause) switchClauseNode()       {}
 func (*CaseClause) switchClauseNode()         {}
 func (*DefaultAloneClause) switchClauseNode() {}
 
-func (*FnParam) paramNode()     {}
+func (*FuncParam) paramNode()   {}
 func (*IfAttrParam) paramNode() {}
 
 type File struct {

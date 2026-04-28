@@ -10,7 +10,7 @@ import (
 type Symbol struct {
 	File string   // e.g., "./foo.wgsl"
 	Name string   // original name, e.g., "foo"
-	Decl ast.Decl // the declaration (FnDecl, StructDecl, etc.)
+	Decl ast.Decl // the declaration (FuncDecl, StructDecl, etc.)
 }
 
 // SymbolTable maps symbol names to their defining symbol
@@ -28,7 +28,7 @@ func BuildSymbolTable(f *ast.File, filePath string) SymbolTable {
 
 	for _, d := range f.Decls {
 		switch dd := d.(type) {
-		case *ast.FnDecl:
+		case *ast.FuncDecl:
 			table[dd.Name] = Symbol{filePath, dd.Name, dd}
 
 		case *ast.StructDecl:
@@ -153,7 +153,7 @@ func CollectImplicitImports(f *ast.File) []ImplicitImport {
 	// Walk declarations
 	for _, d := range f.Decls {
 		switch dd := d.(type) {
-		case *ast.FnDecl:
+		case *ast.FuncDecl:
 			for _, s := range dd.Body.Stmts {
 				walkStmt(s)
 			}

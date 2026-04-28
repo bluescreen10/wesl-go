@@ -82,8 +82,8 @@ func (r *importResolver) resolveImports(f *ast.File) []ast.Decl {
 
 func (r *importResolver) addDeclWithRename(decls []ast.Decl, d ast.Decl, symbol, alias string) []ast.Decl {
 	switch dd := d.(type) {
-	case *ast.FnDecl:
-		newDecl := &ast.FnDecl{
+	case *ast.FuncDecl:
+		newDecl := &ast.FuncDecl{
 			Name:        dd.Name,
 			Attrs:       dd.Attrs,
 			Params:      dd.Params,
@@ -150,7 +150,7 @@ func (r *importResolver) extractExport(f *ast.File, symbol string) []ast.Decl {
 
 func (r *importResolver) matchesExport(d ast.Decl, symbol string) bool {
 	switch d := d.(type) {
-	case *ast.FnDecl:
+	case *ast.FuncDecl:
 		return d.Name == symbol
 	case *ast.StructDecl:
 		return d.Name == symbol
