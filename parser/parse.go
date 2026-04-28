@@ -11,7 +11,7 @@ import (
 type parser struct {
 	input         string
 	pos           int
-	toks          [3]token
+	nextTok       token
 	peekCount     int
 	templateDepth int
 	pendingClose  int // pending '>' from a split '>>' token inside a template
@@ -52,7 +52,7 @@ func (p *parser) parseTopLevelDecl() ast.Decl {
 	}
 
 	attrs := p.parseAttributes()
-	tok := p.peekNonTrivia()
+	tok := p.peek()
 	switch tok.typ {
 	case tokenDiagnostic:
 		return p.parseDiagnosticDirective(attrs)
@@ -80,17 +80,18 @@ func (p *parser) parseTopLevelDecl() ast.Decl {
 	panic("unreachable")
 }
 
-func (p *parser) next() token {
+func (p *parser) nextRaw() token {
 	if p.peekCount > 0 {
 		p.peekCount--
+		return p.nextTok
 	} else {
-		p.toks[0] = p.lex.nextToken()
+		p.nextTok = p.lex.nextToken()
 	}
-	return p.toks[p.peekCount]
+	return p.nextTok
 }
 
-func (p *parser) peekNonTrivia() token {
-	tok := p.nextNonTrivia()
+func (p *parser) peek() token {
+	tok := p.next()
 	p.backup()
 	return tok
 }
@@ -101,16 +102,16 @@ func (p *parser) backup() {
 
 func (p *parser) accept(typ tokenType) bool {
 	if p.at(typ) {
-		p.next()
+		p.nextRaw()
 		return true
 	}
 	return false
 }
 
-func (p *parser) nextNonTrivia() token {
+func (p *parser) next() token {
 	var tok token
 	for {
-		tok = p.next()
+		tok = p.nextRaw()
 		if tok.typ != tokenSpace && tok.typ != tokenComment {
 			break
 		}
@@ -119,12 +120,12 @@ func (p *parser) nextNonTrivia() token {
 }
 
 func (p *parser) at(typ tokenType) bool {
-	tok := p.peekNonTrivia()
+	tok := p.peek()
 	return tok.typ == typ
 }
 
 func (p *parser) expect(expected tokenType) token {
-	tok := p.nextNonTrivia()
+	tok := p.next()
 	if tok.typ != expected {
 		p.unexpected(tok)
 	}
@@ -132,7 +133,7 @@ func (p *parser) expect(expected tokenType) token {
 }
 
 func (p *parser) expectOneOf(expected ...tokenType) token {
-	tok := p.nextNonTrivia()
+	tok := p.next()
 	for _, e := range expected {
 		if tok.typ == e {
 			return tok
@@ -532,7 +533,7 @@ func (p *parser) parseImportPath() *ast.ImportDecl {
 	allowSpecial := true // package/super are only valid before any regular ident
 
 	for {
-		switch tok := p.nextNonTrivia(); tok.typ {
+		switch tok := p.next(); tok.typ {
 		case tokenLBrace:
 			decl.Items = p.parseImportItemList()
 			p.expect(tokenRBrace)
@@ -637,11 +638,11 @@ func (p *parser) parseStatement() ast.Stmt {
 // parseStatementBody dispatches on the next keyword after any leading
 // attributes have already been consumed.
 func (p *parser) parseStatementBody(attrs []ast.Attribute) ast.Stmt {
-	switch tok := p.peekNonTrivia(); tok.typ {
+	switch tok := p.peek(); tok.typ {
 	case tokenIfAttr:
 		return p.parseIfAttrStmt()
 	case tokenSemicolon:
-		p.nextNonTrivia()
+		p.next()
 		return &ast.EmptyStmt{}
 	case tokenLBrace:
 		return p.parseCompoundStatement(attrs)
@@ -701,7 +702,7 @@ func (p *parser) parseStatementBody(attrs []ast.Attribute) ast.Stmt {
 func (p *parser) parseReturnStatement(attrs []ast.Attribute) *ast.ReturnStmt {
 	p.expect(tokenReturn)
 	var value ast.Expr
-	tok := p.peekNonTrivia()
+	tok := p.peek()
 	if tok.typ != tokenSemicolon && tok.typ != tokenRBrace {
 		value = p.parseExpression()
 	}
@@ -780,35 +781,35 @@ func (p *parser) parseBlankAssignment(attrs []ast.Attribute) *ast.AssignmentStmt
 func (p *parser) parseExpressionStatement(attrs []ast.Attribute) ast.Stmt {
 	expr := p.parsePostfixExpr()
 
-	switch p.peekNonTrivia().typ {
+	switch p.peek().typ {
 	case tokenPlusPlus:
-		p.nextNonTrivia()
+		p.next()
 		return &ast.IncrementStmt{Attrs: attrs, LHS: expr}
 
 	case tokenMinusMinus:
-		p.nextNonTrivia()
+		p.next()
 		return &ast.DecrementStmt{Attrs: attrs, LHS: expr}
 
 	case tokenEqual:
-		p.nextNonTrivia()
+		p.next()
 		return &ast.AssignmentStmt{Attrs: attrs, LHS: expr, Op: "=", RHS: p.parseExpression()}
 
 	default:
 		if op, ok := p.isCompoundAssignOp(); ok {
-			p.nextNonTrivia()
+			p.next()
 			return &ast.AssignmentStmt{Attrs: attrs, LHS: expr, Op: op, RHS: p.parseExpression()}
 		}
 
 		call, ok := expr.(*ast.CallExpr)
 		if !ok {
-			p.unexpected(p.peekNonTrivia())
+			p.unexpected(p.peek())
 		}
 		return &ast.FnCallStmt{Attrs: attrs, Call: *call}
 	}
 }
 
 func (p *parser) isCompoundAssignOp() (string, bool) {
-	switch tok := p.peekNonTrivia(); tok.typ {
+	switch tok := p.peek(); tok.typ {
 	case tokenPlusEq, tokenMinusEq, tokenStarEq, tokenSlashEq, tokenPercentEq,
 		tokenAmpEq, tokenPipeEq, tokenCaretEq, tokenLtLtEq, tokenGtGtEq:
 		return tok.val, true
@@ -824,7 +825,7 @@ func (p *parser) isCompoundAssignOp() (string, bool) {
 //	| attribute* 'let'   optionally_typed_ident '=' expression
 //	| attribute* 'const' optionally_typed_ident '=' expression
 func (p *parser) parseVarOrValueStatement(attrs []ast.Attribute) *ast.VarOrValueStmt {
-	switch tok := p.peekNonTrivia(); tok.typ {
+	switch tok := p.peek(); tok.typ {
 	case tokenVar:
 		decl := p.parseVariableDecl(attrs)
 
@@ -836,7 +837,7 @@ func (p *parser) parseVarOrValueStatement(attrs []ast.Attribute) *ast.VarOrValue
 		return &ast.VarOrValueStmt{Attrs: attrs, Keyword: "", Decl: &decl, Init: init}
 
 	case tokenLet:
-		p.nextNonTrivia()
+		p.next()
 		ident := p.parseOptionallyTypedIdent()
 		p.expect(tokenEqual)
 		init := p.parseExpression()
@@ -848,7 +849,7 @@ func (p *parser) parseVarOrValueStatement(attrs []ast.Attribute) *ast.VarOrValue
 		}
 
 	case tokenConst:
-		p.nextNonTrivia()
+		p.next()
 		ident := p.parseOptionallyTypedIdent()
 		p.expect(tokenEqual)
 		init := p.parseExpression()
@@ -888,7 +889,7 @@ func (p *parser) parseSwitchStatement(attrs []ast.Attribute) *ast.SwitchStmt {
 	for !p.at(tokenRBrace) {
 		clauseAttrs := p.parseAttributes()
 
-		switch p.peekNonTrivia().typ {
+		switch p.peek().typ {
 		case tokenIfAttr:
 			clauses = append(clauses, p.parseIfAttrClause())
 		default:
@@ -903,7 +904,7 @@ func (p *parser) parseSwitchStatement(attrs []ast.Attribute) *ast.SwitchStmt {
 //
 // parseSwitchClause
 func (p *parser) parseSwitchClause(attrs []ast.Attribute) ast.SwitchClause {
-	switch tok := p.peekNonTrivia(); tok.typ {
+	switch tok := p.peek(); tok.typ {
 	case tokenCase:
 		return p.parseCaseClause(attrs)
 	case tokenDefault:
@@ -964,7 +965,7 @@ func (p *parser) parseCaseSelectors() []ast.Expr {
 			break
 		}
 		p.accept(tokenComma)
-		next := p.peekNonTrivia()
+		next := p.peek()
 		if next.typ == tokenColon || next.typ == tokenLBrace {
 			break
 		}
@@ -1023,7 +1024,7 @@ func (p *parser) parseForStatement(attrs []ast.Attribute) *ast.ForStmt {
 	var init ast.Stmt
 	if !p.at(tokenSemicolon) {
 		initAttrs := p.parseAttributes()
-		switch p.peekNonTrivia().typ {
+		switch p.peek().typ {
 		case tokenVar, tokenLet, tokenConst:
 			init = p.parseVarOrValueStatement(initAttrs)
 		default:
@@ -1080,12 +1081,12 @@ func (p *parser) parseExprPrec(minPrec int) ast.Expr {
 	left := p.parseUnaryExpr()
 
 	for {
-		op := p.peekNonTrivia()
+		op := p.peek()
 		prec := p.infixPrec(op)
 		if prec <= minPrec {
 			break
 		}
-		p.nextNonTrivia()
+		p.next()
 		right := p.parseExprPrec(prec)
 		left = &ast.BinaryExpr{Op: op.val, Left: left, Right: right}
 	}
@@ -1103,15 +1104,15 @@ func (p *parser) parseExprPrec(minPrec int) ast.Expr {
 //
 // parseUnaryExpr parses a unary prefix expression.
 func (p *parser) parseUnaryExpr() ast.Expr {
-	switch tok := p.peekNonTrivia(); tok.typ {
+	switch tok := p.peek(); tok.typ {
 	case tokenBang, tokenTilde, tokenMinus:
-		p.nextNonTrivia()
+		p.next()
 		return &ast.UnaryExpr{Op: tok.val, Operand: p.parseUnaryExpr()}
 	case tokenStar:
-		p.nextNonTrivia()
+		p.next()
 		return &ast.DerefExpr{Operand: p.parseUnaryExpr()}
 	case tokenAmp:
-		p.nextNonTrivia()
+		p.next()
 		return &ast.AddrOfExpr{Operand: p.parseUnaryExpr()}
 	default:
 		return p.parsePostfixExpr()
@@ -1130,7 +1131,7 @@ func (p *parser) parsePostfixExpr() ast.Expr {
 	expr := p.parsePrimaryExpr()
 
 	for {
-		switch p.peekNonTrivia().typ {
+		switch p.peek().typ {
 		case tokenLBracket:
 			p.expect(tokenLBracket)
 			idx := p.parseExpression()
@@ -1138,7 +1139,7 @@ func (p *parser) parsePostfixExpr() ast.Expr {
 			expr = &ast.IndexExpr{Base: expr, Index: idx}
 
 		case tokenDot:
-			p.nextNonTrivia()
+			p.next()
 			member := p.expect(tokenIdent)
 			expr = &ast.MemberExpr{Base: expr, Member: member.val}
 
@@ -1158,7 +1159,7 @@ func (p *parser) parsePostfixExpr() ast.Expr {
 // parsePrimaryExpr parses literals, parenthesised expressions, identifiers,
 // and call expressions (including template-parameterised calls).
 func (p *parser) parsePrimaryExpr() ast.Expr {
-	switch tok := p.nextNonTrivia(); tok.typ {
+	switch tok := p.next(); tok.typ {
 	case tokenNumber, tokenTrue, tokenFalse:
 		return &ast.LitExpr{Val: tok.val}
 	case tokenLParen:
@@ -1169,7 +1170,7 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 		ident := tok.val
 		p.expect(tokenColonColon)
 		for p.at(tokenIdent) {
-			tok := p.nextNonTrivia()
+			tok := p.next()
 			ident += "::" + tok.val
 			p.accept(tokenColonColon)
 		}
@@ -1181,7 +1182,7 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 	case tokenIdent:
 		ident := tok.val
 		for p.at(tokenColonColon) {
-			p.nextNonTrivia() // consume ::
+			p.next() // consume ::
 			seg := p.expect(tokenIdent)
 			ident += "::" + seg.val
 		}
@@ -1220,13 +1221,13 @@ func (p *parser) parseTemplateList() []ast.Expr {
 			p.pendingClose--
 			return true
 		}
-		switch p.peekNonTrivia().typ {
+		switch p.peek().typ {
 		case tokenRAngle:
-			p.nextNonTrivia()
+			p.next()
 			return true
 		case tokenGtGt:
 			// Consume '>>' but leave one '>' for the enclosing template.
-			p.nextNonTrivia()
+			p.next()
 			p.pendingClose++
 			return true
 		}
@@ -1258,7 +1259,7 @@ func (p *parser) parseTemplateList() []ast.Expr {
 //     which treats '<' as a template opener unconditionally — avoiding the need
 //     for templateDepth to suppress '<' for that nested parse.
 func (p *parser) parseTemplateArg() ast.Expr {
-	if p.peekNonTrivia().typ == tokenIdent {
+	if p.peek().typ == tokenIdent {
 		return p.parseTypeSpecifier().AsExpr()
 	}
 	return p.parseExpression()
