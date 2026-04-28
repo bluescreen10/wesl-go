@@ -138,7 +138,7 @@ func (p *printer) printDecl(d ast.Decl) {
 		p.writeBytes(SEMICOLON)
 	case *ast.FuncDecl:
 		p.printFuncDecl(d)
-	case *ast.GlobalValueDecl:
+	case *ast.GlobalValDecl:
 		p.printAttrs(d.Attrs)
 		p.writeString(d.Keyword)
 		p.writeBytes(WHITESPACE)
@@ -152,8 +152,16 @@ func (p *printer) printDecl(d ast.Decl) {
 			p.printExpr(d.Init)
 		}
 		p.writeBytes(SEMICOLON)
-	case *ast.GlobalVariableDecl:
-		p.printDecl(d.Decl)
+	case *ast.GlobalVarDecl:
+		p.printAttrs(d.Attrs)
+		p.writeString(VAR)
+		p.printTemplateArgs(d.TemplateArgs)
+		p.writeBytes(WHITESPACE)
+		p.writeString(d.Name)
+		if d.Type != nil {
+			p.writeBytes(COLON, WHITESPACE)
+			p.printTypeSpecifier(*d.Type)
+		}
 		if d.Init != nil {
 			p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
 			p.printExpr(d.Init)
@@ -203,16 +211,6 @@ func (p *printer) printDecl(d ast.Decl) {
 		p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
 		p.printTypeSpecifier(d.Type)
 		p.writeBytes(SEMICOLON)
-	case *ast.VariableDecl:
-		p.printAttrs(d.Attrs)
-		p.writeString(VAR)
-		p.printTemplateArgs(d.TemplateArgs)
-		p.writeBytes(WHITESPACE)
-		p.writeString(d.Name)
-		if d.Type != nil {
-			p.writeBytes(COLON, WHITESPACE)
-			p.printTypeSpecifier(*d.Type)
-		}
 	}
 }
 
@@ -403,26 +401,31 @@ func (p *printer) printStmt(s ast.Stmt) {
 		p.writeBytes(WHITESPACE, LBRACE, WHITESPACE)
 		p.printSwitchClauses(s.Clauses)
 		p.writeBytes(WHITESPACE, RBRACE)
-	case *ast.VarOrValueStmt:
+	case *ast.VarStmt:
 		p.printAttrs(s.Attrs)
-		if s.Keyword != "" {
-			p.writeString(s.Keyword)
-			p.writeBytes(WHITESPACE)
-		}
-		if s.Name != "" {
-			p.writeString(s.Name)
-			if s.Type != nil {
-				p.writeBytes(COLON, WHITESPACE)
-				p.printTypeSpecifier(*s.Type)
-			}
-		}
-		if s.Decl != nil {
-			p.printDecl(s.Decl)
+		p.writeString(VAR)
+		p.printTemplateArgs(s.TemplateArgs)
+		p.writeBytes(WHITESPACE)
+		p.writeString(s.Name)
+		if s.Type != nil {
+			p.writeBytes(COLON, WHITESPACE)
+			p.printTypeSpecifier(*s.Type)
 		}
 		if s.Init != nil {
 			p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
 			p.printExpr(s.Init)
 		}
+	case *ast.ValStmt:
+		p.printAttrs(s.Attrs)
+		p.writeString(s.Keyword)
+		p.writeBytes(WHITESPACE)
+		p.writeString(s.Name)
+		if s.Type != nil {
+			p.writeBytes(COLON, WHITESPACE)
+			p.printTypeSpecifier(*s.Type)
+		}
+		p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
+		p.printExpr(s.Init)
 	case *ast.WhileStmt:
 		p.printAttrs(s.Attrs)
 		p.writeString(WHILE)

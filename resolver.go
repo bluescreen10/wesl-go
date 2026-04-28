@@ -267,7 +267,9 @@ func (r *Resolver) collectInlineRefs(d ast.Decl, entries *[]importEntry, renames
 			walkExpr(st.RHS)
 		case *ast.ReturnStmt:
 			walkExpr(st.Value)
-		case *ast.VarOrValueStmt:
+		case *ast.VarStmt:
+			walkExpr(st.Init)
+		case *ast.ValStmt:
 			walkExpr(st.Init)
 		case *ast.CompoundStmt:
 			for _, s2 := range st.Stmts {
@@ -324,9 +326,9 @@ func (r *Resolver) collectInlineRefs(d ast.Decl, entries *[]importEntry, renames
 				walkStmt(s)
 			}
 		}
-	case *ast.GlobalValueDecl:
+	case *ast.GlobalValDecl:
 		walkExpr(dd.Init)
-	case *ast.GlobalVariableDecl:
+	case *ast.GlobalVarDecl:
 		if dd.Init != nil {
 			walkExpr(dd.Init)
 		}
@@ -610,22 +612,19 @@ func (r *Resolver) referencedNames(decl ast.Decl) []string {
 			walkExpr(st.RHS, *sc)
 		case *ast.ReturnStmt:
 			walkExpr(st.Value, *sc)
-		case *ast.VarOrValueStmt:
+		case *ast.VarStmt:
+			walkExpr(st.Init, *sc)
+			if st.Type != nil {
+				addName(st.Type.Name, *sc)
+			}
+			(*sc).define(st.Name)
+		case *ast.ValStmt:
 			// Process the init and type first (they see the scope BEFORE the new binding).
 			walkExpr(st.Init, *sc)
-			if st.Decl != nil {
-				if st.Decl.Type != nil {
-					addName(st.Decl.Type.Name, *sc)
-				}
-				// Define the new name AFTER processing the rhs.
-				(*sc).define(st.Decl.Name)
+			if st.Type != nil {
+				addName(st.Type.Name, *sc)
 			}
-			if st.Name != "" {
-				if st.Type != nil {
-					addName(st.Type.Name, *sc)
-				}
-				(*sc).define(st.Name)
-			}
+			(*sc).define(st.Name)
 		case *ast.CompoundStmt:
 			// Nested block: new scope, but share sequential side-effects within it.
 			nested := (*sc).push()
@@ -717,19 +716,17 @@ func (r *Resolver) referencedNames(decl ast.Decl) []string {
 			}
 		}
 
-	case *ast.GlobalValueDecl:
+	case *ast.GlobalValDecl:
 		sc := newScopeStack()
 		if dd.Type != nil {
 			addName(dd.Type.Name, sc)
 		}
 		walkExpr(dd.Init, sc)
 
-	case *ast.GlobalVariableDecl:
+	case *ast.GlobalVarDecl:
 		sc := newScopeStack()
-		if vd, ok := dd.Decl.(*ast.VariableDecl); ok {
-			if vd.Type != nil {
-				addName(vd.Type.Name, sc)
-			}
+		if dd.Type != nil {
+			addName(dd.Type.Name, sc)
 		}
 		if dd.Init != nil {
 			walkExpr(dd.Init, sc)
@@ -833,12 +830,10 @@ func (r *Resolver) declName(d ast.Decl) string {
 		return dd.Name
 	case *ast.StructDecl:
 		return dd.Name
-	case *ast.GlobalValueDecl:
+	case *ast.GlobalValDecl:
 		return dd.Name
-	case *ast.GlobalVariableDecl:
-		if vd, ok := dd.Decl.(*ast.VariableDecl); ok {
-			return vd.Name
-		}
+	case *ast.GlobalVarDecl:
+		return dd.Name
 	case *ast.TypeAliasDecl:
 		return dd.Name
 	}
@@ -866,10 +861,10 @@ func (r *Resolver) cloneDecl(d ast.Decl) ast.Decl {
 	case *ast.StructDecl:
 		c := *dd
 		return &c
-	case *ast.GlobalValueDecl:
+	case *ast.GlobalValDecl:
 		c := *dd
 		return &c
-	case *ast.GlobalVariableDecl:
+	case *ast.GlobalVarDecl:
 		c := *dd
 		return &c
 	case *ast.TypeAliasDecl:
@@ -889,12 +884,10 @@ func (r *Resolver) renameDeclHeader(d ast.Decl, outputName string) {
 		dd.Name = outputName
 	case *ast.StructDecl:
 		dd.Name = outputName
-	case *ast.GlobalValueDecl:
+	case *ast.GlobalValDecl:
 		dd.Name = outputName
-	case *ast.GlobalVariableDecl:
-		if vd, ok := dd.Decl.(*ast.VariableDecl); ok {
-			vd.Name = outputName
-		}
+	case *ast.GlobalVarDecl:
+		dd.Name = outputName
 	case *ast.TypeAliasDecl:
 		dd.Name = outputName
 	}
@@ -977,14 +970,12 @@ func (r *Resolver) rewriteDeclRefs(d ast.Decl, renames map[string]string) {
 			rewriteExpr(st.RHS)
 		case *ast.ReturnStmt:
 			rewriteExpr(st.Value)
-		case *ast.VarOrValueStmt:
+		case *ast.VarStmt:
 			rewriteExpr(st.Init)
-			if st.Decl != nil {
-				renameTS(st.Decl.Type)
-			}
-			if st.Name != "" {
-				renameTS(st.Type)
-			}
+			renameTS(st.Type)
+		case *ast.ValStmt:
+			rewriteExpr(st.Init)
+			renameTS(st.Type)
 		case *ast.CompoundStmt:
 			for _, s2 := range st.Stmts {
 				rewriteStmt(s2)
@@ -1053,13 +1044,11 @@ func (r *Resolver) rewriteDeclRefs(d ast.Decl, renames map[string]string) {
 				renameTS(&sf.Type)
 			}
 		}
-	case *ast.GlobalValueDecl:
+	case *ast.GlobalValDecl:
 		renameTS(dd.Type)
 		rewriteExpr(dd.Init)
-	case *ast.GlobalVariableDecl:
-		if vd, ok := dd.Decl.(*ast.VariableDecl); ok {
-			renameTS(vd.Type)
-		}
+	case *ast.GlobalVarDecl:
+		renameTS(dd.Type)
 		if dd.Init != nil {
 			rewriteExpr(dd.Init)
 		}

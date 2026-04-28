@@ -228,9 +228,9 @@ func (p *parser) parseTopLevelDecl() ast.Decl {
 	case tokenAlias:
 		return p.parseTypeAliasDecl(attrs)
 	case tokenVar:
-		return p.parseGlobalVariableDecl(attrs)
+		return p.parseGlobalVarDecl(attrs)
 	case tokenConst, tokenOverride:
-		return p.parseGlobalValueDecl(attrs)
+		return p.parseGlobalValDecl(attrs)
 	case tokenFunc:
 		return p.parseFuncDecl(attrs)
 	case tokenImport:
@@ -374,9 +374,14 @@ func (p *parser) parseTypeAliasDecl(attrs []ast.Attribute) *ast.TypeAliasDecl {
 
 //	variable_decl ( '=' expression )?
 //
-// parseGlobalVariableDecl parses a global variable declaration
-func (p *parser) parseGlobalVariableDecl(attrs []ast.Attribute) *ast.GlobalVariableDecl {
-	decl := p.parseVariableDecl(attrs)
+// parseGlobalVarDecl parses a global variable declaration
+func (p *parser) parseGlobalVarDecl(attrs []ast.Attribute) *ast.GlobalVarDecl {
+	p.expect(tokenVar)
+	var templateArgs []ast.Expr
+	if p.at(tokenLAngle) {
+		templateArgs = p.parseTemplateList()
+	}
+	name, typ := p.parseOptionallyTypedIdent()
 
 	var init ast.Expr
 	if p.accept(tokenEqual) {
@@ -384,30 +389,14 @@ func (p *parser) parseGlobalVariableDecl(attrs []ast.Attribute) *ast.GlobalVaria
 	}
 	p.expect(tokenSemicolon)
 
-	return &ast.GlobalVariableDecl{Decl: &decl, Init: init}
-}
-
-//	attribute* 'var' _disambiguate_template template_list? optionally_typed_ident
-//
-// The attrs argument contains attributes already consumed by the caller.
-// The 'var' keyword is consumed here.
-//
-// parseVariableDecl parses the core variable declaration form
-func (p *parser) parseVariableDecl(attrs []ast.Attribute) ast.VariableDecl {
-	p.expect(tokenVar)
-	var templateArgs []ast.Expr
-	if p.at(tokenLAngle) {
-		templateArgs = p.parseTemplateList()
-	}
-	name, typ := p.parseOptionallyTypedIdent()
-	return ast.VariableDecl{Attrs: attrs, TemplateArgs: templateArgs, Name: name, Type: typ}
+	return &ast.GlobalVarDecl{Attrs: attrs, TemplateArgs: templateArgs, Name: name, Type: typ, Init: init}
 }
 
 //	attribute* 'const'    optionally_typed_ident '=' expression
 //	attribute* 'override' optionally_typed_ident ( '=' expression )?
 //
-// parseGlobalValueDecl parses a global value declaration
-func (p *parser) parseGlobalValueDecl(attrs []ast.Attribute) *ast.GlobalValueDecl {
+// parseGlobalValDecl parses a global value declaration
+func (p *parser) parseGlobalValDecl(attrs []ast.Attribute) *ast.GlobalValDecl {
 	kw := p.expectOneOf(tokenConst, tokenOverride)
 	name, typ := p.parseOptionallyTypedIdent()
 
@@ -425,7 +414,7 @@ func (p *parser) parseGlobalValueDecl(attrs []ast.Attribute) *ast.GlobalValueDec
 	}
 
 	p.expect(tokenSemicolon)
-	return &ast.GlobalValueDecl{Attrs: attrs, Keyword: kw.val, Name: name, Type: typ, Init: init}
+	return &ast.GlobalValDecl{Attrs: attrs, Keyword: kw.val, Name: name, Type: typ, Init: init}
 }
 
 // parseGlobalConstAssert parse a global const_assert statement
@@ -813,24 +802,27 @@ func (p *parser) isCompoundAssignOp() (string, bool) {
 //	| variable_decl '=' expression
 //	| attribute* 'let'   optionally_typed_ident '=' expression
 //	| attribute* 'const' optionally_typed_ident '=' expression
-func (p *parser) parseVarOrValueStatement(attrs []ast.Attribute) *ast.VarOrValueStmt {
+func (p *parser) parseVarOrValueStatement(attrs []ast.Attribute) ast.Stmt {
 	switch tok := p.peek(); tok.typ {
 	case tokenVar:
-		decl := p.parseVariableDecl(attrs)
-
+		p.next()
+		var templateArgs []ast.Expr
+		if p.at(tokenLAngle) {
+			templateArgs = p.parseTemplateList()
+		}
+		name, typ := p.parseOptionallyTypedIdent()
 		var init ast.Expr
 		if p.accept(tokenEqual) {
 			init = p.parseExpression()
 		}
-
-		return &ast.VarOrValueStmt{Attrs: attrs, Keyword: "", Decl: &decl, Init: init}
+		return &ast.VarStmt{Attrs: attrs, TemplateArgs: templateArgs, Name: name, Type: typ, Init: init}
 
 	case tokenLet, tokenConst:
 		p.next()
 		name, typ := p.parseOptionallyTypedIdent()
 		p.expect(tokenEqual)
 		init := p.parseExpression()
-		return &ast.VarOrValueStmt{Attrs: attrs, Keyword: tok.val, Name: name, Type: typ, Init: init}
+		return &ast.ValStmt{Attrs: attrs, Keyword: tok.val, Name: name, Type: typ, Init: init}
 
 	default:
 		p.unexpected(tok)

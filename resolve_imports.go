@@ -154,12 +154,10 @@ func (r *importResolver) matchesExport(d ast.Decl, symbol string) bool {
 		return d.Name == symbol
 	case *ast.StructDecl:
 		return d.Name == symbol
-	case *ast.GlobalValueDecl:
+	case *ast.GlobalValDecl:
 		return d.Name == symbol
-	case *ast.GlobalVariableDecl:
-		if vd, ok := d.Decl.(*ast.VariableDecl); ok {
-			return vd.Name == symbol
-		}
+	case *ast.GlobalVarDecl:
+		return d.Name == symbol
 	case *ast.TypeAliasDecl:
 		return d.Name == symbol
 	}

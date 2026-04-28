@@ -51,7 +51,7 @@ type (
 	}
 
 	// Global Val
-	GlobalValueDecl struct {
+	GlobalValDecl struct {
 		Keyword string
 		Attrs   []Attribute
 		Name    string
@@ -60,9 +60,12 @@ type (
 	}
 
 	// Global Var
-	GlobalVariableDecl struct {
-		Decl Decl
-		Init Expr
+	GlobalVarDecl struct {
+		Attrs        []Attribute
+		TemplateArgs []Expr
+		Name         string
+		Type         *TypeSpecifier
+		Init         Expr
 	}
 
 	// @if
@@ -99,28 +102,19 @@ type (
 		Attrs []Attribute
 		Type  TypeSpecifier
 	}
-
-	// Variable
-	VariableDecl struct {
-		Attrs        []Attribute
-		TemplateArgs []Expr
-		Name         string
-		Type         *TypeSpecifier
-	}
 )
 
 func (*ConstAssertDecl) declNode()     {}
 func (*DiagnosticDirective) declNode() {}
 func (*EnableDirective) declNode()     {}
 func (*FuncDecl) declNode()            {}
-func (*GlobalValueDecl) declNode()     {}
-func (*GlobalVariableDecl) declNode()  {}
+func (*GlobalValDecl) declNode()       {}
+func (*GlobalVarDecl) declNode()       {}
 func (*ImportDecl) declNode()          {}
 func (*IfAttrDecl) declNode()          {}
 func (*RequiresDirective) declNode()   {}
 func (*StructDecl) declNode()          {}
 func (*TypeAliasDecl) declNode()       {}
-func (*VariableDecl) declNode()        {}
 
 // ----------------------------------------------------------------------------
 // Stmt
@@ -241,11 +235,19 @@ type (
 		Clauses []SwitchClause
 	}
 
-	// Var or value
-	VarOrValueStmt struct {
+	// Local var statement
+	VarStmt struct {
+		Attrs        []Attribute
+		TemplateArgs []Expr
+		Name         string
+		Type         *TypeSpecifier
+		Init         Expr
+	}
+
+	// Local let/const statement (Keyword is "let" or "const")
+	ValStmt struct {
 		Attrs   []Attribute
 		Keyword string
-		Decl    *VariableDecl
 		Name    string
 		Type    *TypeSpecifier
 		Init    Expr
@@ -276,7 +278,8 @@ func (*IncDecStmt) stmtNode()      {}
 func (*LoopStmt) stmtNode()        {}
 func (*ReturnStmt) stmtNode()      {}
 func (*SwitchStmt) stmtNode()      {}
-func (*VarOrValueStmt) stmtNode()  {}
+func (*VarStmt) stmtNode()         {}
+func (*ValStmt) stmtNode()         {}
 func (*WhileStmt) stmtNode()       {}
 
 // ----------------------------------------------------------------------------
