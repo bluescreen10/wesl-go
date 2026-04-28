@@ -447,19 +447,19 @@ func (p *printer) printSwitchClause(c ast.SwitchClause) {
 	switch c := c.(type) {
 	case *ast.CaseClause:
 		p.printAttrs(c.Attrs)
-		p.writeString(CASE)
-		p.writeBytes(WHITESPACE)
-		for i, s := range c.Selectors {
-			if i > 0 {
-				p.writeBytes(COMMA, WHITESPACE)
+		if c.Selectors == nil {
+			p.writeString(DEFAULT)
+			p.writeBytes(WHITESPACE)
+		} else {
+			p.writeString(CASE)
+			p.writeBytes(WHITESPACE)
+			for i, s := range c.Selectors {
+				if i > 0 {
+					p.writeBytes(COMMA, WHITESPACE)
+				}
+				p.printExpr(s)
 			}
-			p.printExpr(s)
 		}
-		p.printCompoundStmt(c.Body)
-	case *ast.DefaultAloneClause:
-		p.printAttrs(c.Attrs)
-		p.writeString(DEFAULT)
-		p.writeBytes(WHITESPACE)
 		p.printCompoundStmt(c.Body)
 	case *ast.IfAttrClause:
 		p.writeString(IF_ATTR)

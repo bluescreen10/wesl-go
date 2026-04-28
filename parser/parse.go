@@ -919,11 +919,11 @@ func (p *parser) parseCaseClause(attrs []ast.Attribute) *ast.CaseClause {
 //	attribute* 'default' ':'? compound_statement
 //
 // parseDefaultClause parses a default statement within a switch
-func (p *parser) parseDefaultClause(attrs []ast.Attribute) *ast.DefaultAloneClause {
+func (p *parser) parseDefaultClause(attrs []ast.Attribute) *ast.CaseClause {
 	p.expect(tokenDefault)
 	p.accept(tokenColon)
 	body := p.parseCompoundStatement(nil)
-	return &ast.DefaultAloneClause{Attrs: attrs, Body: body}
+	return &ast.CaseClause{Attrs: attrs, Body: body}
 }
 
 func (p *parser) parseIfAttrClause() *ast.IfAttrClause {

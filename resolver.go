@@ -307,15 +307,9 @@ func (r *Resolver) collectInlineRefs(d ast.Decl, entries *[]importEntry, renames
 		case *ast.SwitchStmt:
 			walkExpr(st.Expr)
 			for _, cl := range st.Clauses {
-				switch c := cl.(type) {
-				case *ast.CaseClause:
-					for _, s2 := range c.Body.Stmts {
-						walkStmt(s2)
-					}
-				case *ast.DefaultAloneClause:
-					for _, s2 := range c.Body.Stmts {
-						walkStmt(s2)
-					}
+				cl := cl.(*ast.CaseClause)
+				for _, s2 := range cl.Body.Stmts {
+					walkStmt(s2)
 				}
 			}
 		case *ast.IncrementStmt:
@@ -681,14 +675,9 @@ func (r *Resolver) referencedNames(decl ast.Decl) []string {
 		case *ast.SwitchStmt:
 			walkExpr(st.Expr, *sc)
 			for _, cl := range st.Clauses {
-				switch c := cl.(type) {
-				case *ast.CaseClause:
-					nested := (*sc).push()
-					walkStmts(c.Body.Stmts, &nested)
-				case *ast.DefaultAloneClause:
-					nested := (*sc).push()
-					walkStmts(c.Body.Stmts, &nested)
-				}
+				cl := cl.(*ast.CaseClause)
+				nested := (*sc).push()
+				walkStmts(cl.Body.Stmts, &nested)
 			}
 		case *ast.IncrementStmt:
 			walkExpr(st.LHS, *sc)
@@ -1038,16 +1027,11 @@ func (r *Resolver) rewriteDeclRefs(d ast.Decl, renames map[string]string) {
 		case *ast.SwitchStmt:
 			rewriteExpr(st.Expr)
 			for _, cl := range st.Clauses {
-				switch c := cl.(type) {
-				case *ast.CaseClause:
-					for _, s2 := range c.Body.Stmts {
-						rewriteStmt(s2)
-					}
-				case *ast.DefaultAloneClause:
-					for _, s2 := range c.Body.Stmts {
-						rewriteStmt(s2)
-					}
+				cl := cl.(*ast.CaseClause)
+				for _, s2 := range cl.Body.Stmts {
+					rewriteStmt(s2)
 				}
+
 			}
 		case *ast.IncrementStmt:
 			rewriteExpr(st.LHS)

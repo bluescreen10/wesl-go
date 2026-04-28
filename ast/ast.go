@@ -433,20 +433,13 @@ type (
 
 	// @if
 	IfAttrClause IfAttr[SwitchClause]
-
-	// Default
-	DefaultAloneClause struct {
-		Attrs []Attribute
-		Body  *CompoundStmt
-	}
 )
 
 func (*IfAttrStructField) structMemberNode() {}
 func (*StructField) structMemberNode()       {}
 
-func (*IfAttrClause) switchClauseNode()       {}
-func (*CaseClause) switchClauseNode()         {}
-func (*DefaultAloneClause) switchClauseNode() {}
+func (*IfAttrClause) switchClauseNode() {}
+func (*CaseClause) switchClauseNode()   {}
 
 func (*FuncParam) paramNode()   {}
 func (*IfAttrParam) paramNode() {}

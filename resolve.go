@@ -186,11 +186,6 @@ func resolveClause(c ast.SwitchClause, defines map[string]bool) ast.SwitchClause
 			Selectors: c.Selectors,
 			Body:      resolveCompoundStmt(c.Body, defines),
 		}
-	case *ast.DefaultAloneClause:
-		return &ast.DefaultAloneClause{
-			Attrs: c.Attrs,
-			Body:  resolveCompoundStmt(c.Body, defines),
-		}
 	default:
 		panic("unknown clause")
 	}
