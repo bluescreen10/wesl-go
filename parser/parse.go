@@ -9,18 +9,18 @@ import (
 )
 
 type parser struct {
-	input         string
-	pos           int
-	nextTok       token
-	peekCount     int
+	input   string
+	tok     token
+	nextTok token
+	lex     *lexer
+
 	templateDepth int
 	pendingClose  int // pending '>' from a split '>>' token inside a template
-
-	lex *lexer
 }
 
 func Parse(input string) (*ast.File, error) {
 	p := &parser{input: input, lex: lex(input)}
+	p.init()
 	return p.Parse()
 }
 
@@ -46,82 +46,41 @@ func (p *parser) Parse() (decls *ast.File, err error) {
 	return &ast, nil
 }
 
-func (p *parser) parseTopLevelDecl() ast.Decl {
-	if p.at(tokenIfAttr) {
-		return p.parseIfAttrDecl()
-	}
-
-	attrs := p.parseAttributes()
-	tok := p.peek()
-	switch tok.typ {
-	case tokenDiagnostic:
-		return p.parseDiagnosticDirective(attrs)
-	case tokenEnable:
-		return p.parseEnableDirective(attrs)
-	case tokenRequires:
-		return p.parseRequiresDirective(attrs)
-	case tokenConstAssert:
-		return p.parseGlobalConstAssert(attrs)
-	case tokenStruct:
-		return p.parseStructDecl(attrs)
-	case tokenAlias:
-		return p.parseTypeAliasDecl(attrs)
-	case tokenVar:
-		return p.parseGlobalVariableDecl(attrs)
-	case tokenConst, tokenOverride:
-		return p.parseGlobalValueDecl(attrs)
-	case tokenFunc:
-		return p.parseFuncDecl(attrs)
-	case tokenImport:
-		return p.parseImportDecl()
-	default:
-		p.unexpected(tok)
-	}
-	panic("unreachable")
-}
-
-func (p *parser) nextRaw() token {
-	if p.peekCount > 0 {
-		p.peekCount--
-		return p.nextTok
-	} else {
-		p.nextTok = p.lex.nextToken()
-	}
-	return p.nextTok
+func (p *parser) init() {
+	p.tok = p.next0()
+	p.nextTok = p.next0()
 }
 
 func (p *parser) peek() token {
-	tok := p.next()
-	p.backup()
+	return p.tok
+}
+
+func (p *parser) next() token {
+	tok := p.tok
+	p.tok = p.nextTok
+	p.nextTok = p.next0()
 	return tok
 }
 
-func (p *parser) backup() {
-	p.peekCount++
+func (p *parser) next0() token {
+	for {
+		tok := p.lex.nextToken()
+		if tok.typ != tokenSpace && tok.typ != tokenComment {
+			return tok
+		}
+	}
 }
 
 func (p *parser) accept(typ tokenType) bool {
 	if p.at(typ) {
-		p.nextRaw()
+		p.next()
 		return true
 	}
 	return false
 }
 
-func (p *parser) next() token {
-	var tok token
-	for {
-		tok = p.nextRaw()
-		if tok.typ != tokenSpace && tok.typ != tokenComment {
-			break
-		}
-	}
-	return tok
-}
-
 func (p *parser) at(typ tokenType) bool {
-	tok := p.peek()
-	return tok.typ == typ
+	return p.tok.typ == typ
 }
 
 func (p *parser) expect(expected tokenType) token {
@@ -247,6 +206,40 @@ func (p *parser) parseIfAttrStmt() *ast.IfAttrStmt {
 
 // ----------------------------------------------------------------------------
 // Global Declarations
+
+func (p *parser) parseTopLevelDecl() ast.Decl {
+	if p.at(tokenIfAttr) {
+		return p.parseIfAttrDecl()
+	}
+
+	attrs := p.parseAttributes()
+	tok := p.peek()
+	switch tok.typ {
+	case tokenDiagnostic:
+		return p.parseDiagnosticDirective(attrs)
+	case tokenEnable:
+		return p.parseEnableDirective(attrs)
+	case tokenRequires:
+		return p.parseRequiresDirective(attrs)
+	case tokenConstAssert:
+		return p.parseGlobalConstAssert(attrs)
+	case tokenStruct:
+		return p.parseStructDecl(attrs)
+	case tokenAlias:
+		return p.parseTypeAliasDecl(attrs)
+	case tokenVar:
+		return p.parseGlobalVariableDecl(attrs)
+	case tokenConst, tokenOverride:
+		return p.parseGlobalValueDecl(attrs)
+	case tokenFunc:
+		return p.parseFuncDecl(attrs)
+	case tokenImport:
+		return p.parseImportDecl()
+	default:
+		p.unexpected(tok)
+	}
+	panic("unreachable")
+}
 
 //	attribute* 'diagnostic' diagnostic_control ';'
 //
