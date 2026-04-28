@@ -116,7 +116,7 @@ func TestConditionalTranslation(t *testing.T) {
 
 			if test.Expected != got {
 				src := test.Srcs["./main.wgsl"]
-				t.Errorf("translate (%s)\n  expected (%s)\n  got     (%s)", src, test.Expected, got)
+				t.Errorf("translate (%s)\n  expected (%s)\n  got      (%s)", src, test.Expected, got)
 			}
 		})
 	}

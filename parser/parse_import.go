@@ -28,7 +28,7 @@ func (p *parser) parseImportPath() *ast.ImportDecl {
 			if !allowSpecial {
 				p.unexpected(tok)
 			}
-			if p.peekNonTrivia().typ != tokenDoubleColon {
+			if p.peekNonTrivia().typ != tokenColonColon {
 				p.unexpected(tok)
 			}
 			p.nextNonTrivia() // consume ::
@@ -37,7 +37,7 @@ func (p *parser) parseImportPath() *ast.ImportDecl {
 		case tokenIdent:
 			allowSpecial = false
 			next := p.peekNonTrivia()
-			if next.typ == tokenDoubleColon {
+			if next.typ == tokenColonColon {
 				p.nextNonTrivia() // consume ::
 				decl.Path = append(decl.Path, tok.val)
 			} else {
@@ -83,7 +83,7 @@ func (p *parser) parseImportItem(prefix []string) []ast.ImportItem {
 	tok := p.expect(tokenIdent)
 	next := p.peekNonTrivia()
 
-	if next.typ == tokenDoubleColon {
+	if next.typ == tokenColonColon {
 		p.nextNonTrivia() // consume ::
 		if p.peekNonTrivia().typ == tokenLBrace {
 			// Nested brace group: d::{ e, f } — expand inline

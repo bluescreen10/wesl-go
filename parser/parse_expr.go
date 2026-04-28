@@ -188,11 +188,11 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 		return &ast.ParenExpr{Inner: inner}
 	case tokenPackage, tokenSuper:
 		ident := t.val
-		p.expect(tokenDoubleColon)
+		p.expect(tokenColonColon)
 		for p.at(tokenIdent) {
 			tok := p.nextNonTrivia()
 			ident += "::" + tok.val
-			if p.at(tokenDoubleColon) {
+			if p.at(tokenColonColon) {
 				p.nextNonTrivia()
 			}
 		}
@@ -204,7 +204,7 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 	case tokenIdent:
 		ident := t.val
 		// Consume namespace separators: foo::bar::baz
-		for p.at(tokenDoubleColon) {
+		for p.at(tokenColonColon) {
 			p.nextNonTrivia() // consume ::
 			seg := p.expect(tokenIdent)
 			ident += "::" + seg.val

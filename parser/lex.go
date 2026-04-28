@@ -37,7 +37,7 @@ const (
 
 	// punctuation
 	tokenComma
-	tokenDoubleColon
+	tokenColonColon
 	tokenColon
 	tokenSemicolon
 	tokenLBrace
@@ -132,7 +132,7 @@ const (
 
 const eof = -1
 
-var key = map[string]tokenType{
+var keyword = map[string]tokenType{
 	"import":       tokenImport,
 	"as":           tokenAs,
 	"super":        tokenSuper,
@@ -205,6 +205,19 @@ var operators = map[string]tokenType{
 	"<<=": tokenLtLtEq,
 	">>=": tokenGtGtEq,
 	"->":  tokenArrow,
+}
+
+// punctuation maps single-character tokens that need no lookahead.
+var punctuation = map[rune]tokenType{
+	',': tokenComma,
+	';': tokenSemicolon,
+	'.': tokenDot,
+	'{': tokenLBrace,
+	'}': tokenRBrace,
+	'(': tokenLParen,
+	')': tokenRParen,
+	'[': tokenLBracket,
+	']': tokenRBracket,
 }
 
 type stateFn func(*lexer) stateFn
@@ -306,61 +319,29 @@ func (l *lexer) errorf(format string, args ...any) stateFn {
 func lexDecl(l *lexer) stateFn {
 	switch r := l.next(); {
 	case r == eof:
-		l.emit(tokenEOF)
-		return nil
+		return l.emit(tokenEOF)
+	case isPunctuation(r):
+		return l.emit(punctuation[r])
 	case isSpace(r):
 		l.backup()
 		return lexSpace
 	case r == ':':
 		if l.peek() == ':' {
 			l.next()
-			return l.emit(tokenDoubleColon)
+			return l.emit(tokenColonColon)
 		}
 		return l.emit(tokenColon)
-	case r == ',':
-		return l.emit(tokenComma)
-	case r == ';':
-		return l.emit(tokenSemicolon)
-	case r == '.':
-		return l.emit(tokenDot)
-	case r == '{':
-		return l.emit(tokenLBrace)
-	case r == '}':
-		return l.emit(tokenRBrace)
-	case r == '(':
-		return l.emit(tokenLParen)
-	case r == ')':
-		return l.emit(tokenRParen)
-	case r == '[':
-		return l.emit(tokenLBracket)
-	case r == ']':
-		return l.emit(tokenRBracket)
-	case r == '/':
-		next := l.peek()
-		if next == '/' || next == '*' {
-			l.backup()
-			return lexComment
-		}
-		return l.errorf("unexpected character: %#U", r)
 	case r == '@':
-		next := l.peek()
-		if isAlphaNumeric(next) {
-			l.backup()
-			return lexAttribute
-		}
-		return l.errorf("unexpected character: %#U", r)
-	case r == '+' || r == '-':
-		next := l.peek()
 		l.backup()
-		if isNumber(next) {
-			return lexNumber
-		} else {
-			return lexOperator
-		}
+		return lexAttribute
 	case isNumber(r):
 		l.backup()
 		return lexNumber
 	case isOperator(r):
+		if r == '/' && (l.peek() == '/' || l.peek() == '*') {
+			l.backup()
+			return lexComment
+		}
 		l.backup()
 		return lexOperator
 	case isAlphaNumeric(r):
@@ -373,25 +354,18 @@ func lexDecl(l *lexer) stateFn {
 
 func lexNumber(l *lexer) stateFn {
 	digits := "0123456789"
-
-	l.accept("+-")
-
-	if l.accept("0") {
-		if l.accept("xX") {
-			digits = "0123456789abcdefABCDEF"
-		}
+	if l.accept("0") && l.accept("xX") {
+		digits = "0123456789abcdefABCDEF"
 	}
 	l.acceptRun(digits)
 	if l.accept(".") {
 		l.acceptRun(digits)
 	}
-	if len(digits) == 10+1 && l.accept("eE") {
+	if len(digits) == 10 && l.accept("eE") {
 		l.accept("+-")
 		l.acceptRun("0123456789")
 	}
-
 	l.acceptRun("iuhf")
-
 	if isAlphaNumeric(l.peek()) {
 		l.next()
 		return l.errorf("bad number syntax: %q", l.input[l.start:l.pos])
@@ -400,44 +374,32 @@ func lexNumber(l *lexer) stateFn {
 }
 
 func lexOperator(l *lexer) stateFn {
-	for {
-		switch r := l.next(); {
-		case isOperator(r):
-			// consume it
-		default:
-			l.backup()
-			word := l.input[l.start:l.pos]
-			if typ, ok := operators[word]; ok {
-				return l.emit(typ)
-			}
-			return l.errorf("unrecognized operator: %s", word)
-		}
+	for isOperator(l.peek()) {
+		l.next()
 	}
+	word := l.input[l.start:l.pos]
+	if typ, ok := operators[word]; ok {
+		return l.emit(typ)
+	}
+	return l.errorf("unrecognized operator: %s", word)
 }
 
 func lexComment(l *lexer) stateFn {
-	l.next()
-
-	var r rune
-
+	l.next() // consume first '/'
 	if l.next() == '/' {
-		// inline comment
-		for {
-			r = l.next()
-			if isNewline(r) {
-				break
-			}
+		for !isNewline(l.peek()) {
+			l.next()
 		}
 	} else {
-		// comment block
-		for {
-			//FIXME: WGSL allows nested comments
-			r = l.next()
-			if r == '*' {
-				if l.peek() == '/' {
-					l.next()
-					break
-				}
+		depth := 1
+		for depth > 0 {
+			switch r := l.next(); {
+			case r == '/' && l.peek() == '*':
+				l.next()
+				depth++
+			case r == '*' && l.peek() == '/':
+				l.next()
+				depth--
 			}
 		}
 	}
@@ -445,50 +407,35 @@ func lexComment(l *lexer) stateFn {
 }
 
 func lexIdent(l *lexer) stateFn {
-	for {
-		switch r := l.next(); {
-		case isAlphaNumeric(r):
-
-		default:
-			l.backup()
-			word := l.input[l.start:l.pos]
-			if typ, ok := key[word]; ok {
-				return l.emit(typ)
-			}
-			return l.emit(tokenIdent)
-		}
-	}
-}
-
-func lexAttribute(l *lexer) stateFn {
-	l.next()
-
-	for {
-		switch r := l.next(); {
-		case isAlphaNumeric(r):
-
-		default:
-			l.backup()
-			word := l.input[l.start:l.pos]
-			if typ, ok := attr[word]; ok {
-				return l.emit(typ)
-			}
-			return l.emit(tokenAttr)
-		}
-	}
-}
-
-func lexSpace(l *lexer) stateFn {
-	var r rune
-
-	for {
-		r = l.peek()
-		if !isSpace(r) {
-			break
-		}
+	for isAlphaNumeric(l.peek()) {
 		l.next()
 	}
 
+	word := l.input[l.start:l.pos]
+	if typ, ok := keyword[word]; ok {
+		return l.emit(typ)
+	}
+
+	return l.emit(tokenIdent)
+}
+
+func lexAttribute(l *lexer) stateFn {
+	l.next() // consume ('@')
+
+	for isAlphaNumeric(l.peek()) {
+		l.next()
+	}
+
+	word := l.input[l.start:l.pos]
+	if typ, ok := attr[word]; ok {
+		return l.emit(typ)
+	}
+
+	return l.emit(tokenAttr)
+}
+
+func lexSpace(l *lexer) stateFn {
+	l.acceptRun(" \t\r\n")
 	return l.emit(tokenSpace)
 }
 
@@ -521,5 +468,10 @@ func isOperator(r rune) bool {
 }
 
 func isNumber(r rune) bool {
-	return ('0' <= r && r <= '9')
+	return '0' <= r && r <= '9'
+}
+
+func isPunctuation(r rune) bool {
+	_, ok := punctuation[r]
+	return ok
 }
