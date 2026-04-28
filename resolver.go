@@ -614,17 +614,17 @@ func (r *Resolver) referencedNames(decl ast.Decl) []string {
 			// Process the init and type first (they see the scope BEFORE the new binding).
 			walkExpr(st.Init, *sc)
 			if st.Decl != nil {
-				if st.Decl.Ident.Type != nil {
-					addName(st.Decl.Ident.Type.Name, *sc)
+				if st.Decl.Type != nil {
+					addName(st.Decl.Type.Name, *sc)
 				}
 				// Define the new name AFTER processing the rhs.
-				(*sc).define(st.Decl.Ident.Name)
+				(*sc).define(st.Decl.Name)
 			}
-			if st.Ident != nil {
-				if st.Ident.Type != nil {
-					addName(st.Ident.Type.Name, *sc)
+			if st.Name != "" {
+				if st.Type != nil {
+					addName(st.Type.Name, *sc)
 				}
-				(*sc).define(st.Ident.Name)
+				(*sc).define(st.Name)
 			}
 		case *ast.CompoundStmt:
 			// Nested block: new scope, but share sequential side-effects within it.
@@ -719,16 +719,16 @@ func (r *Resolver) referencedNames(decl ast.Decl) []string {
 
 	case *ast.GlobalValueDecl:
 		sc := newScopeStack()
-		if dd.Ident.Type != nil {
-			addName(dd.Ident.Type.Name, sc)
+		if dd.Type != nil {
+			addName(dd.Type.Name, sc)
 		}
 		walkExpr(dd.Init, sc)
 
 	case *ast.GlobalVariableDecl:
 		sc := newScopeStack()
 		if vd, ok := dd.Decl.(*ast.VariableDecl); ok {
-			if vd.Ident.Type != nil {
-				addName(vd.Ident.Type.Name, sc)
+			if vd.Type != nil {
+				addName(vd.Type.Name, sc)
 			}
 		}
 		if dd.Init != nil {
@@ -834,10 +834,10 @@ func (r *Resolver) declName(d ast.Decl) string {
 	case *ast.StructDecl:
 		return dd.Name
 	case *ast.GlobalValueDecl:
-		return dd.Ident.Name
+		return dd.Name
 	case *ast.GlobalVariableDecl:
 		if vd, ok := dd.Decl.(*ast.VariableDecl); ok {
-			return vd.Ident.Name
+			return vd.Name
 		}
 	case *ast.TypeAliasDecl:
 		return dd.Name
@@ -890,10 +890,10 @@ func (r *Resolver) renameDeclHeader(d ast.Decl, outputName string) {
 	case *ast.StructDecl:
 		dd.Name = outputName
 	case *ast.GlobalValueDecl:
-		dd.Ident.Name = outputName
+		dd.Name = outputName
 	case *ast.GlobalVariableDecl:
 		if vd, ok := dd.Decl.(*ast.VariableDecl); ok {
-			vd.Ident.Name = outputName
+			vd.Name = outputName
 		}
 	case *ast.TypeAliasDecl:
 		dd.Name = outputName
@@ -980,10 +980,10 @@ func (r *Resolver) rewriteDeclRefs(d ast.Decl, renames map[string]string) {
 		case *ast.VarOrValueStmt:
 			rewriteExpr(st.Init)
 			if st.Decl != nil {
-				renameTS(st.Decl.Ident.Type)
+				renameTS(st.Decl.Type)
 			}
-			if st.Ident != nil {
-				renameTS(st.Ident.Type)
+			if st.Name != "" {
+				renameTS(st.Type)
 			}
 		case *ast.CompoundStmt:
 			for _, s2 := range st.Stmts {
@@ -1054,11 +1054,11 @@ func (r *Resolver) rewriteDeclRefs(d ast.Decl, renames map[string]string) {
 			}
 		}
 	case *ast.GlobalValueDecl:
-		renameTS(dd.Ident.Type)
+		renameTS(dd.Type)
 		rewriteExpr(dd.Init)
 	case *ast.GlobalVariableDecl:
 		if vd, ok := dd.Decl.(*ast.VariableDecl); ok {
-			renameTS(vd.Ident.Type)
+			renameTS(vd.Type)
 		}
 		if dd.Init != nil {
 			rewriteExpr(dd.Init)

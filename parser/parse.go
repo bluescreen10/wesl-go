@@ -399,7 +399,8 @@ func (p *parser) parseVariableDecl(attrs []ast.Attribute) ast.VariableDecl {
 	if p.at(tokenLAngle) {
 		templateArgs = p.parseTemplateList()
 	}
-	return ast.VariableDecl{Attrs: attrs, TemplateArgs: templateArgs, Ident: p.parseOptionallyTypedIdent()}
+	name, typ := p.parseOptionallyTypedIdent()
+	return ast.VariableDecl{Attrs: attrs, TemplateArgs: templateArgs, Name: name, Type: typ}
 }
 
 //	attribute* 'const'    optionally_typed_ident '=' expression
@@ -408,7 +409,7 @@ func (p *parser) parseVariableDecl(attrs []ast.Attribute) ast.VariableDecl {
 // parseGlobalValueDecl parses a global value declaration
 func (p *parser) parseGlobalValueDecl(attrs []ast.Attribute) *ast.GlobalValueDecl {
 	kw := p.expectOneOf(tokenConst, tokenOverride)
-	ident := p.parseOptionallyTypedIdent()
+	name, typ := p.parseOptionallyTypedIdent()
 
 	var init ast.Expr
 
@@ -424,7 +425,7 @@ func (p *parser) parseGlobalValueDecl(attrs []ast.Attribute) *ast.GlobalValueDec
 	}
 
 	p.expect(tokenSemicolon)
-	return &ast.GlobalValueDecl{Attrs: attrs, Keyword: kw.val, Ident: ident, Init: init}
+	return &ast.GlobalValueDecl{Attrs: attrs, Keyword: kw.val, Name: name, Type: typ, Init: init}
 }
 
 // parseGlobalConstAssert parse a global const_assert statement
@@ -826,27 +827,17 @@ func (p *parser) parseVarOrValueStatement(attrs []ast.Attribute) *ast.VarOrValue
 
 	case tokenLet:
 		p.next()
-		ident := p.parseOptionallyTypedIdent()
+		name, typ := p.parseOptionallyTypedIdent()
 		p.expect(tokenEqual)
 		init := p.parseExpression()
-		return &ast.VarOrValueStmt{
-			Attrs:   attrs,
-			Keyword: "let",
-			Ident:   &ident,
-			Init:    init,
-		}
+		return &ast.VarOrValueStmt{Attrs: attrs, Keyword: "let", Name: name, Type: typ, Init: init}
 
 	case tokenConst:
 		p.next()
-		ident := p.parseOptionallyTypedIdent()
+		name, typ := p.parseOptionallyTypedIdent()
 		p.expect(tokenEqual)
 		init := p.parseExpression()
-		return &ast.VarOrValueStmt{
-			Attrs:   attrs,
-			Keyword: "const",
-			Ident:   &ident,
-			Init:    init,
-		}
+		return &ast.VarOrValueStmt{Attrs: attrs, Keyword: "const", Name: name, Type: typ, Init: init}
 
 	default:
 		p.unexpected(tok)
@@ -1267,20 +1258,14 @@ func (p *parser) parseTypeSpecifier() ast.TypeSpecifier {
 	return ast.TypeSpecifier{Name: tok.val, TemplateArgs: args}
 }
 
-//	optionally_typed_ident : ident ( ':' type_specifier )?
-//
-// parseOptionallyTypedIdent parses type specifiers that are optional
-// FIXME: remove me and use ast.TypeSpecifier instead
-func (p *parser) parseOptionallyTypedIdent() ast.OptionallyTypedIdent {
+func (p *parser) parseOptionallyTypedIdent() (string, *ast.TypeSpecifier) {
 	tok := p.expect(tokenIdent)
-
 	var typ *ast.TypeSpecifier
 	if p.accept(tokenColon) {
 		ts := p.parseTypeSpecifier()
 		typ = &ts
 	}
-
-	return ast.OptionallyTypedIdent{Name: tok.val, Type: typ}
+	return tok.val, typ
 }
 
 func (p *parser) parseArgumentExpressionList() []ast.Expr {

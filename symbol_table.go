@@ -35,11 +35,11 @@ func BuildSymbolTable(f *ast.File, filePath string) SymbolTable {
 			table[dd.Name] = Symbol{filePath, dd.Name, dd}
 
 		case *ast.GlobalValueDecl:
-			table[dd.Ident.Name] = Symbol{filePath, dd.Ident.Name, dd}
+			table[dd.Name] = Symbol{filePath, dd.Name, dd}
 
 		case *ast.GlobalVariableDecl:
 			if vd, ok := dd.Decl.(*ast.VariableDecl); ok {
-				table[vd.Ident.Name] = Symbol{filePath, vd.Ident.Name, dd}
+				table[vd.Name] = Symbol{filePath, vd.Name, dd}
 			}
 
 		case *ast.TypeAliasDecl:

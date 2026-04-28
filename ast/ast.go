@@ -54,7 +54,8 @@ type (
 	GlobalValueDecl struct {
 		Keyword string
 		Attrs   []Attribute
-		Ident   OptionallyTypedIdent
+		Name    string
+		Type    *TypeSpecifier
 		Init    Expr
 	}
 
@@ -101,9 +102,10 @@ type (
 
 	// Variable
 	VariableDecl struct {
-		Ident        OptionallyTypedIdent
 		Attrs        []Attribute
 		TemplateArgs []Expr
+		Name         string
+		Type         *TypeSpecifier
 	}
 )
 
@@ -244,7 +246,8 @@ type (
 		Attrs   []Attribute
 		Keyword string
 		Decl    *VariableDecl
-		Ident   *OptionallyTypedIdent
+		Name    string
+		Type    *TypeSpecifier
 		Init    Expr
 	}
 
@@ -372,12 +375,6 @@ type (
 	DiagnosticControl struct {
 		Severity string
 		RuleName string
-	}
-
-	// Optionally Typed
-	OptionallyTypedIdent struct {
-		Name string
-		Type *TypeSpecifier
 	}
 
 	// Function Param

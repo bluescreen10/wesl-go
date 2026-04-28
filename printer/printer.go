@@ -142,7 +142,11 @@ func (p *printer) printDecl(d ast.Decl) {
 		p.printAttrs(d.Attrs)
 		p.writeString(d.Keyword)
 		p.writeBytes(WHITESPACE)
-		p.printOptTypedIdent(&d.Ident)
+		p.writeString(d.Name)
+		if d.Type != nil {
+			p.writeBytes(COLON, WHITESPACE)
+			p.printTypeSpecifier(*d.Type)
+		}
 		if d.Init != nil {
 			p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
 			p.printExpr(d.Init)
@@ -204,7 +208,11 @@ func (p *printer) printDecl(d ast.Decl) {
 		p.writeString(VAR)
 		p.printTemplateArgs(d.TemplateArgs)
 		p.writeBytes(WHITESPACE)
-		p.printOptTypedIdent(&d.Ident)
+		p.writeString(d.Name)
+		if d.Type != nil {
+			p.writeBytes(COLON, WHITESPACE)
+			p.printTypeSpecifier(*d.Type)
+		}
 	}
 }
 
@@ -401,8 +409,12 @@ func (p *printer) printStmt(s ast.Stmt) {
 			p.writeString(s.Keyword)
 			p.writeBytes(WHITESPACE)
 		}
-		if s.Ident != nil {
-			p.printOptTypedIdent(s.Ident)
+		if s.Name != "" {
+			p.writeString(s.Name)
+			if s.Type != nil {
+				p.writeBytes(COLON, WHITESPACE)
+				p.printTypeSpecifier(*s.Type)
+			}
 		}
 		if s.Decl != nil {
 			p.printDecl(s.Decl)
@@ -420,14 +432,6 @@ func (p *printer) printStmt(s ast.Stmt) {
 			p.writeBytes(WHITESPACE)
 		}
 		p.printCompoundStmt(s.Body)
-	}
-}
-
-func (p *printer) printOptTypedIdent(i *ast.OptionallyTypedIdent) {
-	p.writeString(i.Name)
-	if i.Type != nil {
-		p.writeBytes(COLON, WHITESPACE)
-		p.printTypeSpecifier(*i.Type)
 	}
 }
 
