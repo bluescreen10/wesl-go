@@ -2,7 +2,6 @@ package wesl
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -59,31 +58,18 @@ func (c *Compiler) ParseFS(fsys fs.FS, patterns ...string) error {
 		paths = append(paths, matches...)
 	}
 
-	errs := make(chan error, len(paths))
 	for _, path := range paths {
-		go func(p string) {
-			src, err := fs.ReadFile(fsys, p)
-			if err != nil {
-				errs <- fmt.Errorf("error reading file %s: %v", p, err)
-				return
-			}
-			f, err := parser.Parse(string(src))
-			if err != nil {
-				errs <- fmt.Errorf("error parsing %s: %v", p, err)
-				return
-			}
-			c.mu.Lock()
-			c.files[p] = f
-			c.mu.Unlock()
-			errs <- nil
-		}(path)
+		src, err := fs.ReadFile(fsys, path)
+		if err != nil {
+			return fmt.Errorf("error reading file %s: %v", p, err)
+		}
+		err = c.Parse(path, string(src))
+		if err != nil {
+			return fmt.Errorf("error parsing %s: %v", p, err)
+		}
 	}
 
-	var errsSlice []error
-	for range paths {
-		errsSlice = append(errsSlice, <-errs)
-	}
-	return errors.Join(errsSlice...)
+	return nil
 }
 
 func (c *Compiler) ParseGlob(pattern string) error {
@@ -92,31 +78,19 @@ func (c *Compiler) ParseGlob(pattern string) error {
 		return fmt.Errorf("invalid pattern %q: %v", pattern, err)
 	}
 
-	errs := make(chan error, len(paths))
 	for _, path := range paths {
-		go func(p string) {
-			src, err := os.ReadFile(p)
-			if err != nil {
-				errs <- fmt.Errorf("error reading file %s: %v", p, err)
-				return
-			}
-			f, err := parser.Parse(string(src))
-			if err != nil {
-				errs <- fmt.Errorf("error parsing %s: %v", p, err)
-				return
-			}
-			c.mu.Lock()
-			c.files[p] = f
-			c.mu.Unlock()
-			errs <- nil
-		}(path)
+		src, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("error reading file %s: %v", path, err)
+		}
+
+		err = c.Parse(path, string(src))
+		if err != nil {
+			return fmt.Errorf("error parsing %s: %v", p, err)
+		}
 	}
 
-	var errsSlice []error
-	for range paths {
-		errsSlice = append(errsSlice, <-errs)
-	}
-	return errors.Join(errsSlice...)
+	return nil
 }
 
 func (c *Compiler) Compile(file string, defines map[string]bool) (string, error) {
