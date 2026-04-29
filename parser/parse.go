@@ -469,8 +469,10 @@ func (p *parser) parseIfAttrParam() *ast.IfAttrParam {
 	then := p.parseParam()
 
 	var els ast.Param
-	if p.accept(tokenElseAttr) {
-		els = p.parseParam()
+	if p.accept(tokenComma) {
+		if p.accept(tokenElseAttr) {
+			els = p.parseParam()
+		}
 	}
 
 	return &ast.IfAttrParam{Cond: cond, Then: then, Else: els}

@@ -328,6 +328,13 @@
     "expectedWgsl": "struct S { m: f32 } var<private> v: S;"
   },
   {
+    "name": "@else with function formal parameter",
+    "weslSrc": {
+      "./main.wgsl": "fn func(@if(false) foo: u32, @else bar: f32) {}"
+    },
+    "expectedWgsl": "fn func(bar: f32) { }"
+  },
+  {
     "name": "@else with statements",
     "weslSrc": {
       "./main.wgsl": "fn main() { @if(false) let a = 1; @else let a = 2; }"
