@@ -2,8 +2,11 @@ package wesl
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/bluescreen10/wesl-go/ast"
@@ -44,6 +47,76 @@ func (c *Compiler) ParseFile(path string) error {
 	}
 
 	return c.Parse(path, string(src))
+}
+
+func (c *Compiler) ParseFS(fsys fs.FS, patterns ...string) error {
+	var paths []string
+	for _, pattern := range patterns {
+		matches, err := fs.Glob(fsys, pattern)
+		if err != nil {
+			return fmt.Errorf("invalid pattern %q: %v", pattern, err)
+		}
+		paths = append(paths, matches...)
+	}
+
+	errs := make(chan error, len(paths))
+	for _, path := range paths {
+		go func(p string) {
+			src, err := fs.ReadFile(fsys, p)
+			if err != nil {
+				errs <- fmt.Errorf("error reading file %s: %v", p, err)
+				return
+			}
+			f, err := parser.Parse(string(src))
+			if err != nil {
+				errs <- fmt.Errorf("error parsing %s: %v", p, err)
+				return
+			}
+			c.mu.Lock()
+			c.files[p] = f
+			c.mu.Unlock()
+			errs <- nil
+		}(path)
+	}
+
+	var errsSlice []error
+	for range paths {
+		errsSlice = append(errsSlice, <-errs)
+	}
+	return errors.Join(errsSlice...)
+}
+
+func (c *Compiler) ParseGlob(pattern string) error {
+	paths, err := filepath.Glob(pattern)
+	if err != nil {
+		return fmt.Errorf("invalid pattern %q: %v", pattern, err)
+	}
+
+	errs := make(chan error, len(paths))
+	for _, path := range paths {
+		go func(p string) {
+			src, err := os.ReadFile(p)
+			if err != nil {
+				errs <- fmt.Errorf("error reading file %s: %v", p, err)
+				return
+			}
+			f, err := parser.Parse(string(src))
+			if err != nil {
+				errs <- fmt.Errorf("error parsing %s: %v", p, err)
+				return
+			}
+			c.mu.Lock()
+			c.files[p] = f
+			c.mu.Unlock()
+			errs <- nil
+		}(path)
+	}
+
+	var errsSlice []error
+	for range paths {
+		errsSlice = append(errsSlice, <-errs)
+	}
+	return errors.Join(errsSlice...)
 }
 
 func (c *Compiler) Compile(file string, defines map[string]bool) (string, error) {
