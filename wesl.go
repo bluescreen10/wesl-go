@@ -11,6 +11,7 @@ import (
 	"github.com/bluescreen10/wesl-go/ast"
 	"github.com/bluescreen10/wesl-go/parser"
 	"github.com/bluescreen10/wesl-go/printer"
+	"github.com/bluescreen10/wesl-go/resolver"
 )
 
 type Compiler struct {
@@ -61,11 +62,11 @@ func (c *Compiler) ParseFS(fsys fs.FS, patterns ...string) error {
 	for _, path := range paths {
 		src, err := fs.ReadFile(fsys, path)
 		if err != nil {
-			return fmt.Errorf("error reading file %s: %v", p, err)
+			return fmt.Errorf("error reading file %s: %v", path, err)
 		}
 		err = c.Parse(path, string(src))
 		if err != nil {
-			return fmt.Errorf("error parsing %s: %v", p, err)
+			return fmt.Errorf("error parsing %s: %v", path, err)
 		}
 	}
 
@@ -101,11 +102,10 @@ func (c *Compiler) Compile(file string, defines map[string]bool) (string, error)
 		return "", fmt.Errorf("error fetching parsed ast for file %s", file)
 	}
 
-	// Use the new resolver for full resolution
-	resolver := NewResolver(c.files, defines)
-	resolved := resolver.Resolve(file)
+	r := resolver.New(c.files, defines)
+	ast := r.Resolve(file)
 
 	var buf bytes.Buffer
-	printer.Fprint(&buf, resolved)
+	printer.Fprint(&buf, ast)
 	return buf.String(), nil
 }

@@ -1,4 +1,4 @@
-package wesl
+package resolver
 
 import (
 	"strings"

@@ -1,4 +1,4 @@
-package wesl
+package resolver
 
 import "github.com/bluescreen10/wesl-go/ast"
 

@@ -1,4 +1,4 @@
-package wesl
+package resolver
 
 import (
 	"fmt"
@@ -33,7 +33,7 @@ type Resolver struct {
 	mainFile           string
 }
 
-func NewResolver(files map[string]*ast.File, defines map[string]bool) *Resolver {
+func New(files map[string]*ast.File, defines map[string]bool) *Resolver {
 	return &Resolver{
 		files:              files,
 		defines:            defines,
