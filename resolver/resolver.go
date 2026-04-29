@@ -23,7 +23,7 @@ type importEntry struct {
 type Resolver struct {
 	files              map[string]*ast.File
 	defines            map[string]bool
-	symbols            map[string]SymbolTable
+	resolved           map[string]bool             // files that have had conditionals resolved
 	taken              map[string]bool             // names currently in output namespace
 	assigned           map[fileSymbol]string       // (file,sym) -> final output name; "" = in-progress (cycle guard)
 	depMap             map[fileSymbol][]fileSymbol // cached deps per (actualFile,actualSym) from Phase 1
@@ -37,7 +37,7 @@ func New(files map[string]*ast.File, defines map[string]bool) *Resolver {
 	return &Resolver{
 		files:              files,
 		defines:            defines,
-		symbols:            make(map[string]SymbolTable),
+		resolved:           make(map[string]bool),
 		taken:              make(map[string]bool),
 		assigned:           make(map[fileSymbol]string),
 		depMap:             make(map[fileSymbol][]fileSymbol),
@@ -47,20 +47,25 @@ func New(files map[string]*ast.File, defines map[string]bool) *Resolver {
 	}
 }
 
+// ensureResolved resolves @if/@else conditionals for path if not already done.
+func (r *Resolver) ensureResolved(path string) {
+	if r.resolved[path] {
+		return
+	}
+	r.resolved[path] = true
+	if f, ok := r.files[path]; ok {
+		r.files[path] = r.ResolveConditionals(f)
+	}
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 func (r *Resolver) ResolveFile(mainFile string) *ast.File {
 	r.mainFile = mainFile
 
-	// 1. Resolve @if/@else in every file.
-	for path, f := range r.files {
-		r.files[path] = r.ResolveConditionals(f)
-	}
-
-	// 2. Build per-file symbol tables (after conditional resolution).
-	for path, f := range r.files {
-		r.symbols[path] = BuildSymbolTable(f, path)
-	}
+	// 1. Resolve @if/@else for the entry file only; imported files are resolved lazily
+	//    in resolveSymbol as they are first encountered in the import graph.
+	r.ensureResolved(mainFile)
 
 	mainAST := r.files[mainFile]
 	if mainAST == nil {
@@ -469,6 +474,7 @@ func (r *Resolver) assignName(srcFile, sym, preferredName string) string {
 // resolveSymbol looks up sym in srcFile: first in its own decls, then through
 // its import declarations. Returns (filePath, originalSymbolName).
 func (r *Resolver) resolveSymbol(srcFilePath, sym string) (string, string) {
+	r.ensureResolved(srcFilePath)
 	srcFile := r.files[srcFilePath]
 	if srcFile == nil {
 		return "", ""
