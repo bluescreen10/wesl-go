@@ -49,12 +49,12 @@ func New(files map[string]*ast.File, defines map[string]bool) *Resolver {
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
-func (r *Resolver) Resolve(mainFile string) *ast.File {
+func (r *Resolver) ResolveFile(mainFile string) *ast.File {
 	r.mainFile = mainFile
 
 	// 1. Resolve @if/@else in every file.
 	for path, f := range r.files {
-		r.files[path] = ResolveFile(f, r.defines)
+		r.files[path] = r.ResolveConditionals(f)
 	}
 
 	// 2. Build per-file symbol tables (after conditional resolution).

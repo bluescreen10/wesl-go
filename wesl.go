@@ -103,7 +103,7 @@ func (c *Compiler) Compile(file string, defines map[string]bool) (string, error)
 	}
 
 	r := resolver.New(c.files, defines)
-	ast := r.Resolve(file)
+	ast := r.ResolveFile(file)
 
 	var buf bytes.Buffer
 	printer.Fprint(&buf, ast)
