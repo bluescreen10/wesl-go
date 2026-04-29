@@ -86,7 +86,7 @@ func (c *Compiler) ParseGlob(pattern string) error {
 
 		err = c.Parse(path, string(src))
 		if err != nil {
-			return fmt.Errorf("error parsing %s: %v", p, err)
+			return fmt.Errorf("error parsing %s: %v", path, err)
 		}
 	}
 
