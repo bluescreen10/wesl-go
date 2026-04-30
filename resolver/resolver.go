@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"fmt"
-	"maps"
 	"strings"
 
 	"github.com/bluescreen10/wesl-go/ast"
@@ -24,7 +23,7 @@ type importEntry struct {
 type Resolver struct {
 	files              map[string]*ast.File
 	defines            map[string]bool
-	resolved           map[string]bool             // files that have had conditionals resolved
+	resolved           map[string]*ast.File        // files that have had conditionals resolved
 	taken              map[string]bool             // names in the output namespace
 	assigned           map[fileSymbol]string       // (file,sym) -> output name; also cycle guard
 	depMap             map[fileSymbol][]fileSymbol // pre-mutation dep cache populated by assignName
@@ -40,9 +39,9 @@ func ResolveFile(fileName string, files map[string]*ast.File, defines map[string
 
 func New(files map[string]*ast.File, defines map[string]bool) *Resolver {
 	return &Resolver{
-		files:              maps.Clone(files),
+		files:              files,
 		defines:            defines,
-		resolved:           make(map[string]bool), // true if conditionals have been resolved
+		resolved:           make(map[string]*ast.File), // true if conditionals have been resolved
 		taken:              make(map[string]bool),
 		assigned:           make(map[fileSymbol]string),
 		depMap:             make(map[fileSymbol][]fileSymbol),
@@ -52,28 +51,11 @@ func New(files map[string]*ast.File, defines map[string]bool) *Resolver {
 	}
 }
 
-func (r *Resolver) ensureResolved(path string) {
-	if r.resolved[path] {
-		return
-	}
-	r.resolved[path] = true
-	if f, ok := r.files[path]; ok {
-		r.files[path] = r.ResolveConditionals(f)
-	}
-}
-
-// ── Entry point ───────────────────────────────────────────────────────────────
-
 func (r *Resolver) ResolveFile(fileName string) *ast.File {
-	r.ensureResolved(fileName)
-
-	mainAST := r.files[fileName]
-	if mainAST == nil {
-		return &ast.File{}
-	}
+	file := r.ensureResolved(fileName)
 
 	// Seed taken with names defined locally in main.
-	for _, d := range mainAST.Decls {
+	for _, d := range file.Decls {
 		if _, ok := d.(*ast.ImportDecl); ok {
 			continue
 		}
@@ -82,7 +64,7 @@ func (r *Resolver) ResolveFile(fileName string) *ast.File {
 		}
 	}
 
-	entries, inlineRenames := r.collectImports(fileName)
+	entries, inlineRenames := r.scanDependencies(file)
 
 	// Phase 1: assign output names for all reachable symbols.
 	for _, e := range entries {
@@ -104,7 +86,7 @@ func (r *Resolver) ResolveFile(fileName string) *ast.File {
 	}
 
 	var localDecls []ast.Decl
-	for _, d := range mainAST.Decls {
+	for _, d := range file.Decls {
 		if _, ok := d.(*ast.ImportDecl); ok {
 			continue
 		}
@@ -125,6 +107,21 @@ func (r *Resolver) ResolveFile(fileName string) *ast.File {
 	}
 
 	return &ast.File{Decls: append(localDecls, importedDecls...)}
+}
+
+func (r *Resolver) ensureResolved(filename string) *ast.File {
+	if file := r.resolved[filename]; file != nil {
+		return file
+	}
+
+	file := r.files[filename]
+	if file == nil {
+		return nil
+	}
+
+	file = r.ResolveConditionals(file)
+	r.resolved[filename] = file
+	return file
 }
 
 // ── Phase 1: name assignment ──────────────────────────────────────────────────
@@ -149,7 +146,7 @@ func (r *Resolver) assignName(srcFile, sym, preferredName string) {
 	r.assigned[actualKey] = chosen
 	r.taken[chosen] = true
 
-	decl := r.findDeclInFile(r.files[actualFile], actualSym)
+	decl := r.findDeclInFile(r.resolved[actualFile], actualSym)
 	if decl == nil {
 		return
 	}
@@ -175,7 +172,7 @@ func (r *Resolver) emitPrimary(srcFile, sym string, output *[]ast.Decl) {
 	}
 	r.emitted[key] = true
 
-	decl := r.findDeclInFile(r.files[actualFile], actualSym)
+	decl := r.findDeclInFile(r.resolved[actualFile], actualSym)
 	if decl == nil {
 		return
 	}
@@ -195,7 +192,7 @@ func (r *Resolver) emitDeps(srcFile, sym string, output *[]ast.Decl) {
 			continue
 		}
 		r.emitted[dep] = true
-		depDecl := r.findDeclInFile(r.files[dep.file], dep.sym)
+		depDecl := r.findDeclInFile(r.resolved[dep.file], dep.sym)
 		if depDecl == nil {
 			continue
 		}
@@ -224,7 +221,7 @@ func (r *Resolver) emitConstAsserts(filePath string, output *[]ast.Decl) {
 		return
 	}
 	r.constAssertedFiles[filePath] = true
-	for _, d := range r.files[filePath].Decls {
+	for _, d := range r.resolved[filePath].Decls {
 		if _, ok := d.(*ast.ConstAssertDecl); ok {
 			*output = append(*output, d)
 		}
@@ -233,36 +230,29 @@ func (r *Resolver) emitConstAsserts(filePath string, output *[]ast.Decl) {
 
 // ── Import collection ─────────────────────────────────────────────────────────
 
-func (r *Resolver) collectImports(filePath string) ([]importEntry, map[string]string) {
-	f := r.files[filePath]
+func (r *Resolver) scanDependencies(file *ast.File) ([]importEntry, map[string]string) {
 	renames := map[string]string{}
 	var entries []importEntry
 
-	for _, d := range f.Decls {
-		imp, ok := d.(*ast.ImportDecl)
-		if !ok {
-			continue
-		}
-		for _, item := range imp.Items {
-			srcFile, origSym := r.resolveImportItem(imp.Path, item)
-			if srcFile == "" {
-				r.registerModuleImport(imp.Path, item)
-				continue
+	for _, d := range file.Decls {
+		switch d := d.(type) {
+		case *ast.ImportDecl:
+			for _, item := range d.Items {
+				srcFile, origSym := r.resolveImportItem(d.Path, item)
+				if srcFile == "" {
+					r.registerModuleImport(d.Path, item)
+					continue
+				}
+				desiredName := item.Alias
+				if desiredName == "" {
+					desiredName = item.Path[len(item.Path)-1]
+				}
+				entries = append(entries, importEntry{srcFile, origSym, desiredName})
 			}
-			desiredName := item.Alias
-			if desiredName == "" {
-				desiredName = item.Path[len(item.Path)-1]
-			}
-			entries = append(entries, importEntry{srcFile, origSym, desiredName})
+		default:
+			r.collectInlineRefs(d, &entries, renames)
 		}
-	}
 
-	// Inline package::file::sym and module::sym references in non-import decls.
-	for _, d := range f.Decls {
-		if _, ok := d.(*ast.ImportDecl); ok {
-			continue
-		}
-		r.collectInlineRefs(d, &entries, renames)
 	}
 
 	return entries, renames
@@ -341,7 +331,6 @@ func (r *Resolver) registerModuleImport(prefix []string, item ast.ImportItem) {
 
 func (r *Resolver) lookupFile(segs []string) string {
 	for i := len(segs); i >= 1; i-- {
-		//FIXME: remove extensions
 		candidate := "./" + strings.Join(segs[:i], "/") + ".wgsl"
 		if _, ok := r.files[candidate]; ok {
 			return candidate
@@ -370,8 +359,7 @@ func (r *Resolver) resolveImportItem(prefix []string, item ast.ImportItem) (stri
 }
 
 func (r *Resolver) resolveSymbol(srcFilePath, sym string) (string, string) {
-	r.ensureResolved(srcFilePath)
-	srcFile := r.files[srcFilePath]
+	srcFile := r.ensureResolved(srcFilePath)
 	if srcFile == nil {
 		return "", ""
 	}
@@ -597,6 +585,7 @@ func (r *Resolver) referencedNames(decl ast.Decl) []string {
 
 // ── AST helpers ───────────────────────────────────────────────────────────────
 
+// TODO: Maybe fix if a symbol need globals or other symbols
 func (r *Resolver) findDeclInFile(f *ast.File, sym string) ast.Decl {
 	if f == nil {
 		return nil

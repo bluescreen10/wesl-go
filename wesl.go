@@ -36,7 +36,7 @@ func (c *Compiler) Parse(name, src string) error {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.files[name] = f
+	c.files[c.sanitizeName(name)] = f
 	return nil
 }
 
@@ -107,4 +107,9 @@ func (c *Compiler) Compile(file string, defines map[string]bool) (string, error)
 	var buf bytes.Buffer
 	printer.Fprint(&buf, ast)
 	return buf.String(), nil
+}
+
+func (c *Compiler) sanitizeName(filename string) string {
+	return filename
+	//return strings.TrimSuffix(filename, filepath.Ext(filename))
 }
