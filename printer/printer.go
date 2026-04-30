@@ -217,35 +217,46 @@ func (p *printer) printDecl(d ast.Decl) {
 func (p *printer) printImportDecl(d *ast.ImportDecl) {
 	p.writeString(IMPORT)
 	p.writeBytes(WHITESPACE)
-	for _, seg := range d.Path {
-		p.writeString(seg)
-	}
-	if len(d.Items) == 1 && len(d.Items[0].Path) == 1 && d.Items[0].Alias == "" {
-		p.writeString(d.Items[0].Path[0])
+	if len(d.Items) == 1 && len(d.Items[0].Items) == 0 {
+		item := d.Items[0]
+		p.writeString(item.Name)
+		if item.Alias != "" {
+			p.writeBytes(WHITESPACE)
+			p.writeString(AS)
+			p.writeBytes(WHITESPACE)
+			p.writeString(item.Alias)
+		}
 	} else {
 		p.writeBytes(LBRACE)
 		for i, item := range d.Items {
-			p.writeString(DCOLON)
 			if i > 0 {
 				p.writeBytes(COMMA, WHITESPACE)
 			}
-			for j, seg := range item.Path {
-				if j > 0 {
-
-				}
-				p.writeString(seg)
-			}
-			if item.Alias != "" {
-				p.writeBytes(WHITESPACE)
-				p.writeString(AS)
-				p.writeString(DCOLON)
-				p.writeBytes(WHITESPACE)
-				p.writeString(item.Alias)
-			}
+			p.printImportItem(item)
 		}
 		p.writeBytes(RBRACE)
 	}
 	p.writeBytes(SEMICOLON)
+}
+
+func (p *printer) printImportItem(item ast.ImportItem) {
+	p.writeString(item.Name)
+	if len(item.Items) > 0 {
+		p.writeString(DCOLON)
+		p.writeBytes(LBRACE)
+		for i, sub := range item.Items {
+			if i > 0 {
+				p.writeBytes(COMMA, WHITESPACE)
+			}
+			p.printImportItem(sub)
+		}
+		p.writeBytes(RBRACE)
+	} else if item.Alias != "" {
+		p.writeBytes(WHITESPACE)
+		p.writeString(AS)
+		p.writeBytes(WHITESPACE)
+		p.writeString(item.Alias)
+	}
 }
 
 func (p *printer) printMember(m ast.Member) {

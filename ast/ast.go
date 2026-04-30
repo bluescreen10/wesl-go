@@ -97,14 +97,15 @@ type (
 
 	// Import declaration
 	ImportDecl struct {
-		Path  []string
 		Items []ImportItem
 	}
 
-	// ImportItem is one entry in an import
+	// ImportItem is one node in the import tree.
+	// Leaf nodes (Items == nil) name a symbol; inner nodes name a path segment.
 	ImportItem struct {
-		Path  []string
-		Alias string
+		Name  string
+		Alias string       // only set on leaf nodes with an alias
+		Items []ImportItem // non-nil for inner (brace-group) nodes
 	}
 
 	// Reqiures Directive

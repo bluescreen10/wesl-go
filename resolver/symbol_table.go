@@ -50,19 +50,6 @@ func BuildSymbolTable(f *ast.File, filePath string) SymbolTable {
 	return table
 }
 
-// GetImportPaths extracts the paths from all ImportDecls in a file
-func GetImportPaths(f *ast.File) [][]string {
-	var paths [][]string
-
-	for _, d := range f.Decls {
-		if imp, ok := d.(*ast.ImportDecl); ok {
-			paths = append(paths, imp.Path)
-		}
-	}
-
-	return paths
-}
-
 // BuildFullTable builds symbol tables for ALL files in a map
 func BuildFullTable(files map[string]*ast.File) map[string]SymbolTable {
 	tables := make(map[string]SymbolTable)

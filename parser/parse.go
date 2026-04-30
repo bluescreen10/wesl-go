@@ -514,49 +514,41 @@ func (p *parser) parseImportDecl() *ast.ImportDecl {
 
 // parseImportPath builds an ImportDecl from the path after the 'import' keyword.
 // It does not consume the trailing semicolon.
+// package:: and super:: anchors become wrapper ImportItem nodes in the tree,
+// so the resolver sees a single uniform structure.
 func (p *parser) parseImportPath() *ast.ImportDecl {
 	decl := &ast.ImportDecl{}
 
-	allowSpecial := true // package/super are only valid before any regular ident
-
-	for {
-		switch tok := p.next(); tok.typ {
-		case tokenLBrace:
-			decl.Items = p.parseImportItemList()
-			p.expect(tokenRBrace)
-			return decl
-
-		case tokenPackage, tokenSuper:
-			if !allowSpecial {
-				p.unexpected(tok)
-			}
-			p.expect(tokenColonColon)
-			decl.Path = append(decl.Path, tok.val)
-
-		case tokenIdent:
-			allowSpecial = false
-			if p.accept(tokenColonColon) {
-				decl.Path = append(decl.Path, tok.val)
-			} else {
-				item := ast.ImportItem{Path: []string{tok.val}}
-				if p.accept(tokenAs) {
-					item.Alias = p.expect(tokenIdent).val
-				}
-				decl.Items = []ast.ImportItem{item}
-				return decl
-			}
-
-		default:
-			p.unexpected(tok)
-		}
+	// Collect leading package:: / super:: anchors as wrapper nodes.
+	var wrappers []ast.ImportItem
+	for p.at(tokenPackage) || p.at(tokenSuper) {
+		tok := p.next()
+		p.expect(tokenColonColon)
+		wrappers = append(wrappers, ast.ImportItem{Name: tok.val})
 	}
+
+	var items []ast.ImportItem
+	if p.accept(tokenLBrace) {
+		items = p.parseImportItemList()
+		p.expect(tokenRBrace)
+	} else {
+		items = []ast.ImportItem{p.parseImportItem()}
+	}
+
+	// Wrap items inside the anchor nodes (innermost first).
+	for i := len(wrappers) - 1; i >= 0; i-- {
+		wrappers[i].Items = items
+		items = []ast.ImportItem{wrappers[i]}
+	}
+
+	decl.Items = items
+	return decl
 }
 
 func (p *parser) parseImportItemList() []ast.ImportItem {
 	var items []ast.ImportItem
-
 	for {
-		items = append(items, p.parseImportItem(nil)...)
+		items = append(items, p.parseImportItem())
 		p.accept(tokenComma)
 		if p.at(tokenRBrace) {
 			return items
@@ -564,34 +556,33 @@ func (p *parser) parseImportItemList() []ast.ImportItem {
 	}
 }
 
-// parseImportItem parses one item (or a nested brace group) from a brace list,
-// prepending prefix to every resulting item's path. Returns one or more items
-// because a nested "d::{ e, f }" expands inline.
-func (p *parser) parseImportItem(prefix []string) []ast.ImportItem {
+// parseImportItem parses one tree node. Inner nodes carry sub-items inside
+// braces; leaf nodes carry an optional alias. The :: before { is optional.
+func (p *parser) parseImportItem() ast.ImportItem {
 	tok := p.expect(tokenIdent)
+	item := ast.ImportItem{Name: tok.val}
 
 	if p.accept(tokenColonColon) {
 		if p.accept(tokenLBrace) {
-			sub := p.parseImportItemList()
+			// a::{ b, c }
+			item.Items = p.parseImportItemList()
 			p.expect(tokenRBrace)
-			newPrefix := append(append([]string{}, prefix...), tok.val)
-			result := make([]ast.ImportItem, len(sub))
-			for i, s := range sub {
-				result[i] = ast.ImportItem{
-					Path:  append(append([]string{}, newPrefix...), s.Path...),
-					Alias: s.Alias,
-				}
-			}
-			return result
+		} else {
+			// a::b  or  a::b{ ... }
+			item.Items = []ast.ImportItem{p.parseImportItem()}
 		}
-		return p.parseImportItem(append(append([]string{}, prefix...), tok.val))
+	} else if p.accept(tokenLBrace) {
+		// a{ b, c }  — :: is optional before {
+		item.Items = p.parseImportItemList()
+		p.expect(tokenRBrace)
+	} else {
+		// leaf
+		if p.accept(tokenAs) {
+			item.Alias = p.expect(tokenIdent).val
+		}
 	}
 
-	item := ast.ImportItem{Path: append(append([]string{}, prefix...), tok.val)}
-	if p.accept(tokenAs) {
-		item.Alias = p.expect(tokenIdent).val
-	}
-	return []ast.ImportItem{item}
+	return item
 }
 
 // ----------------------------------------------------------------------------

@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/bluescreen10/wesl-go/ast"
@@ -64,7 +65,7 @@ func (r *Resolver) ResolveFile(fileName string) *ast.File {
 		}
 	}
 
-	entries, inlineRenames := r.scanDependencies(file)
+	entries, inlineRenames := r.scanDependencies(fileName)
 
 	// Phase 1: assign output names for all reachable symbols.
 	for _, e := range entries {
@@ -230,35 +231,45 @@ func (r *Resolver) emitConstAsserts(filePath string, output *[]ast.Decl) {
 
 // ── Import collection ─────────────────────────────────────────────────────────
 
-func (r *Resolver) scanDependencies(file *ast.File) ([]importEntry, map[string]string) {
+func (r *Resolver) scanDependencies(fileName string) ([]importEntry, map[string]string) {
+	file := r.resolved[fileName]
 	renames := map[string]string{}
 	var entries []importEntry
 
 	for _, d := range file.Decls {
 		switch d := d.(type) {
 		case *ast.ImportDecl:
-			for _, item := range d.Items {
-				srcFile, origSym := r.resolveImportItem(d.Path, item)
-				if srcFile == "" {
-					r.registerModuleImport(d.Path, item)
-					continue
-				}
-				desiredName := item.Alias
-				if desiredName == "" {
-					desiredName = item.Path[len(item.Path)-1]
-				}
-				entries = append(entries, importEntry{srcFile, origSym, desiredName})
-			}
+			r.flattenItems(nil, d.Items, fileName, &entries)
 		default:
-			r.collectInlineRefs(d, &entries, renames)
+			r.collectInlineRefs(d, &entries, renames, fileName)
 		}
-
 	}
 
 	return entries, renames
 }
 
-func (r *Resolver) collectInlineRefs(d ast.Decl, entries *[]importEntry, renames map[string]string) {
+// flattenItems walks the import item tree and emits import entries for each leaf.
+// prefix accumulates path segments as we descend non-leaf nodes.
+func (r *Resolver) flattenItems(prefix []string, items []ast.ImportItem, sourceFile string, entries *[]importEntry) {
+	for _, item := range items {
+		if len(item.Items) == 0 {
+			srcFile, origSym := r.resolveImportItem(prefix, item.Name, sourceFile)
+			if srcFile == "" {
+				r.registerModuleImport(prefix, item.Name, sourceFile)
+				continue
+			}
+			desiredName := item.Alias
+			if desiredName == "" {
+				desiredName = item.Name
+			}
+			*entries = append(*entries, importEntry{srcFile, origSym, desiredName})
+		} else {
+			r.flattenItems(append(prefix, item.Name), item.Items, sourceFile, entries)
+		}
+	}
+}
+
+func (r *Resolver) collectInlineRefs(d ast.Decl, entries *[]importEntry, renames map[string]string, sourceFile string) {
 	visit := func(e ast.Expr) bool {
 		var name string
 		switch ex := e.(type) {
@@ -272,16 +283,7 @@ func (r *Resolver) collectInlineRefs(d ast.Decl, entries *[]importEntry, renames
 		if !strings.Contains(name, "::") {
 			return true
 		}
-		parts := strings.Split(name, "::")
-		sym := parts[len(parts)-1]
-		var filePath string
-		if parts[0] == "package" || parts[0] == "super" {
-			if len(parts) >= 3 {
-				filePath = r.lookupFile(parts[1 : len(parts)-1])
-			}
-		} else if fp, ok := r.moduleMap[parts[0]]; ok {
-			filePath = fp
-		}
+		filePath, sym := r.resolveQualifiedName(name, sourceFile)
 		if filePath != "" {
 			*entries = append(*entries, importEntry{filePath, sym, sym})
 			renames[name] = sym
@@ -305,29 +307,61 @@ func (r *Resolver) collectInlineRefs(d ast.Decl, entries *[]importEntry, renames
 	}
 }
 
-func (r *Resolver) registerModuleImport(prefix []string, item ast.ImportItem) {
-	modName := item.Path[len(item.Path)-1]
-	var segs []string
-	for _, s := range prefix {
-		if s != "package" && s != "super" {
-			segs = append(segs, s)
-		}
-	}
-	segs = append(segs, item.Path...)
-	candidate := "./" + strings.Join(segs, "/")
-	if _, ok := r.files[candidate]; ok {
-		r.moduleMap[modName] = candidate
+func (r *Resolver) registerModuleImport(prefix []string, sym string, sourceFile string) {
+	segs := r.resolvePathSegs(prefix, sourceFile)
+	if fp := r.lookupFile(append(segs, sym)); fp != "" {
+		r.moduleMap[sym] = fp
 		return
 	}
-	if len(segs) > 0 {
-		candidate2 := "./" + strings.Join(segs[:len(segs)-1], "/")
-		if _, ok := r.files[candidate2]; ok {
-			r.moduleMap[modName] = candidate2
-		}
+	if fp := r.lookupFile(segs); fp != "" {
+		r.moduleMap[sym] = fp
 	}
 }
 
 // ── Symbol/file lookup ────────────────────────────────────────────────────────
+
+// resolvePathSegs converts an import prefix (containing package/super/path segments)
+// into root-relative path segments, resolving package/super relative to sourceFile.
+func (r *Resolver) resolvePathSegs(prefix []string, sourceFile string) []string {
+	dir := path.Dir(sourceFile)
+	var segs []string
+	for _, p := range prefix {
+		switch p {
+		case "package":
+			// stay in current directory
+		case "super":
+			if parent := path.Dir(dir); parent != dir {
+				dir = parent
+			}
+		default:
+			segs = append(segs, p)
+		}
+	}
+	trimmed := strings.TrimPrefix(dir, "./")
+	if trimmed != "." && trimmed != "" {
+		segs = append(strings.Split(trimmed, "/"), segs...)
+	}
+	return segs
+}
+
+// resolveQualifiedName resolves an inline qualified name like "foo::bar" or
+// "package::file::sym" to (filePath, sym) using the module map or path resolution.
+func (r *Resolver) resolveQualifiedName(name string, sourceFile string) (string, string) {
+	parts := strings.Split(name, "::")
+	sym := parts[len(parts)-1]
+	pathParts := parts[:len(parts)-1]
+	if len(pathParts) == 0 {
+		return "", sym
+	}
+	// Module alias: single-segment prefix already registered in moduleMap.
+	if len(pathParts) == 1 {
+		if fp, ok := r.moduleMap[pathParts[0]]; ok {
+			return fp, sym
+		}
+	}
+	segs := r.resolvePathSegs(pathParts, sourceFile)
+	return r.lookupFile(segs), sym
+}
 
 func (r *Resolver) lookupFile(segs []string) string {
 	for i := len(segs); i >= 1; i-- {
@@ -339,15 +373,8 @@ func (r *Resolver) lookupFile(segs []string) string {
 	return ""
 }
 
-func (r *Resolver) resolveImportItem(prefix []string, item ast.ImportItem) (string, string) {
-	sym := item.Path[len(item.Path)-1]
-	var segs []string
-	for _, s := range prefix {
-		if s != "package" && s != "super" {
-			segs = append(segs, s)
-		}
-	}
-	segs = append(segs, item.Path[:len(item.Path)-1]...)
+func (r *Resolver) resolveImportItem(prefix []string, sym string, sourceFile string) (string, string) {
+	segs := r.resolvePathSegs(prefix, sourceFile)
 	if fp := r.lookupFile(segs); fp != "" {
 		return fp, sym
 	}
@@ -371,15 +398,30 @@ func (r *Resolver) resolveSymbol(srcFilePath, sym string) (string, string) {
 		if !ok {
 			continue
 		}
-		for _, item := range imp.Items {
+		if fp, origSym := r.resolveSymbolInItems(nil, imp.Items, sym, srcFilePath); fp != "" {
+			return fp, origSym
+		}
+	}
+	return "", ""
+}
+
+// resolveSymbolInItems searches an import item tree for a leaf whose exported
+// name matches sym, and returns its resolved (filePath, origSym).
+func (r *Resolver) resolveSymbolInItems(prefix []string, items []ast.ImportItem, sym string, sourceFile string) (string, string) {
+	for _, item := range items {
+		if len(item.Items) == 0 {
 			importedName := item.Alias
 			if importedName == "" {
-				importedName = item.Path[len(item.Path)-1]
+				importedName = item.Name
 			}
 			if importedName == sym {
-				if fp, origSym := r.resolveImportItem(imp.Path, item); fp != "" {
+				if fp, origSym := r.resolveImportItem(prefix, item.Name, sourceFile); fp != "" {
 					return fp, origSym
 				}
+			}
+		} else {
+			if fp, origSym := r.resolveSymbolInItems(append(prefix, item.Name), item.Items, sym, sourceFile); fp != "" {
+				return fp, origSym
 			}
 		}
 	}
