@@ -314,13 +314,13 @@ func (r *Resolver) registerModuleImport(prefix []string, item ast.ImportItem) {
 		}
 	}
 	segs = append(segs, item.Path...)
-	candidate := "./" + strings.Join(segs, "/") + ".wgsl"
+	candidate := "./" + strings.Join(segs, "/")
 	if _, ok := r.files[candidate]; ok {
 		r.moduleMap[modName] = candidate
 		return
 	}
 	if len(segs) > 0 {
-		candidate2 := "./" + strings.Join(segs[:len(segs)-1], "/") + ".wgsl"
+		candidate2 := "./" + strings.Join(segs[:len(segs)-1], "/")
 		if _, ok := r.files[candidate2]; ok {
 			r.moduleMap[modName] = candidate2
 		}
@@ -331,7 +331,7 @@ func (r *Resolver) registerModuleImport(prefix []string, item ast.ImportItem) {
 
 func (r *Resolver) lookupFile(segs []string) string {
 	for i := len(segs); i >= 1; i-- {
-		candidate := "./" + strings.Join(segs[:i], "/") + ".wgsl"
+		candidate := "./" + strings.Join(segs[:i], "/")
 		if _, ok := r.files[candidate]; ok {
 			return candidate
 		}

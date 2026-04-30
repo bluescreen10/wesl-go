@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/bluescreen10/wesl-go/ast"
@@ -94,15 +95,16 @@ func (c *Compiler) ParseGlob(pattern string) error {
 	return nil
 }
 
-func (c *Compiler) Compile(file string, defines map[string]bool) (string, error) {
+func (c *Compiler) Compile(filename string, defines map[string]bool) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if _, exists := c.files[file]; !exists {
-		return "", fmt.Errorf("error fetching parsed ast for file %s", file)
+	sanitizedName := c.sanitizeName(filename)
+	if _, exists := c.files[sanitizedName]; !exists {
+		return "", fmt.Errorf("error fetching parsed ast for file %s", filename)
 	}
 
-	ast := resolver.ResolveFile(file, c.files, defines)
+	ast := resolver.ResolveFile(sanitizedName, c.files, defines)
 
 	var buf bytes.Buffer
 	printer.Fprint(&buf, ast)
@@ -110,6 +112,7 @@ func (c *Compiler) Compile(file string, defines map[string]bool) (string, error)
 }
 
 func (c *Compiler) sanitizeName(filename string) string {
-	return filename
-	//return strings.TrimSuffix(filename, filepath.Ext(filename))
+	//return filename
+	name := strings.TrimSuffix(filename, filepath.Ext(filename))
+	return name
 }
