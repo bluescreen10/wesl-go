@@ -1,7 +1,6 @@
 package resolver
 
 import (
-	"fmt"
 	"path"
 	"strings"
 
@@ -25,7 +24,6 @@ type Resolver struct {
 	files              map[string]*ast.File
 	defines            map[string]bool
 	resolved           map[string]*ast.File        // files that have had conditionals resolved
-	taken              map[string]bool             // names in the output namespace
 	assigned           map[fileSymbol]string       // (file,sym) -> output name; also cycle guard
 	depMap             map[fileSymbol][]fileSymbol // pre-mutation dep cache populated by assignName
 	emitted            map[fileSymbol]bool
@@ -43,8 +41,7 @@ func New(files map[string]*ast.File, defines map[string]bool) *Resolver {
 	return &Resolver{
 		files:              files,
 		defines:            defines,
-		resolved:           make(map[string]*ast.File), // true if conditionals have been resolved
-		taken:              make(map[string]bool),
+		resolved:           make(map[string]*ast.File),
 		assigned:           make(map[fileSymbol]string),
 		depMap:             make(map[fileSymbol][]fileSymbol),
 		emitted:            make(map[fileSymbol]bool),
@@ -60,16 +57,6 @@ func mangleName(file, sym string) string {
 func (r *Resolver) ResolveFile(fileName string) *ast.File {
 	r.rootFile = fileName
 	file := r.ensureResolved(fileName)
-
-	// Seed taken with names defined locally in main.
-	for _, d := range file.Decls {
-		if _, ok := d.(*ast.ImportDecl); ok {
-			continue
-		}
-		if n := d.GetName(); n != "" {
-			r.taken[n] = true
-		}
-	}
 
 	entries, inlineRenames := r.scanDependencies(fileName)
 
@@ -154,9 +141,7 @@ func (r *Resolver) assignName(srcFile, sym, preferredName string) {
 			chosen = actualSym
 		}
 	}
-	chosen = r.makeUnique(chosen)
 	r.assigned[actualKey] = chosen
-	r.taken[chosen] = true
 
 	decl := r.findDeclInFile(r.resolved[actualFile], actualSym)
 	if decl == nil {
@@ -218,7 +203,7 @@ func (r *Resolver) buildDecl(decl ast.Decl, actualFile, actualSym string, deps [
 	outputName := r.assigned[fileSymbol{actualFile, actualSym}]
 	renames := map[string]string{}
 	for _, dep := range deps {
-		if out := r.assigned[dep]; out != "" && out != dep.sym {
+		if out := r.assigned[dep]; out != "" {
 			renames[dep.sym] = out
 		}
 	}
@@ -738,15 +723,3 @@ func rewriteDeclRefs(d ast.Decl, renames map[string]string) {
 	}
 }
 
-// ── Unique naming ─────────────────────────────────────────────────────────────
-
-func (r *Resolver) makeUnique(base string) string {
-	if !r.taken[base] {
-		return base
-	}
-	for i := 0; ; i++ {
-		if candidate := fmt.Sprintf("%s%d", base, i); !r.taken[candidate] {
-			return candidate
-		}
-	}
-}
