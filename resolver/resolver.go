@@ -31,6 +31,7 @@ type Resolver struct {
 	emitted            map[fileSymbol]bool
 	moduleMap          map[string]string // module alias -> file path
 	constAssertedFiles map[string]bool
+	rootFile           string // the file being compiled; its declarations are not mangled
 }
 
 func ResolveFile(fileName string, files map[string]*ast.File, defines map[string]bool) *ast.File {
@@ -52,7 +53,12 @@ func New(files map[string]*ast.File, defines map[string]bool) *Resolver {
 	}
 }
 
+func mangleName(file, sym string) string {
+	return "package_" + strings.ReplaceAll(file, "/", "_") + "_" + sym
+}
+
 func (r *Resolver) ResolveFile(fileName string) *ast.File {
+	r.rootFile = fileName
 	file := r.ensureResolved(fileName)
 
 	// Seed taken with names defined locally in main.
@@ -139,9 +145,14 @@ func (r *Resolver) assignName(srcFile, sym, preferredName string) {
 		return
 	}
 
-	chosen := preferredName
-	if chosen == "" {
-		chosen = actualSym
+	var chosen string
+	if actualFile != r.rootFile {
+		chosen = mangleName(actualFile, actualSym)
+	} else {
+		chosen = preferredName
+		if chosen == "" {
+			chosen = actualSym
+		}
 	}
 	chosen = r.makeUnique(chosen)
 	r.assigned[actualKey] = chosen
@@ -286,7 +297,6 @@ func (r *Resolver) collectInlineRefs(d ast.Decl, entries *[]importEntry, renames
 		filePath, sym := r.resolveQualifiedName(name, sourceFile)
 		if filePath != "" {
 			*entries = append(*entries, importEntry{filePath, sym, sym})
-			renames[name] = sym
 		}
 		return true
 	}
@@ -328,7 +338,7 @@ func (r *Resolver) resolvePathSegs(prefix []string, sourceFile string) []string 
 	for _, p := range prefix {
 		switch p {
 		case "package":
-			// stay in current directory
+			dir = "."
 		case "super":
 			if parent := path.Dir(dir); parent != dir {
 				dir = parent
@@ -365,7 +375,7 @@ func (r *Resolver) resolveQualifiedName(name string, sourceFile string) (string,
 
 func (r *Resolver) lookupFile(segs []string) string {
 	for i := len(segs); i >= 1; i-- {
-		candidate := "./" + strings.Join(segs[:i], "/")
+		candidate := strings.Join(segs[:i], "/")
 		if _, ok := r.files[candidate]; ok {
 			return candidate
 		}

@@ -72,9 +72,13 @@ func TestImportCases(t *testing.T) {
 				t.Errorf("translate failed %v", err)
 			}
 
-			if test.Expected != got {
+			want := test.ExpectedUnderscore
+			if want == "" {
+				want = test.Expected
+			}
+			if want != got {
 				src := test.Srcs["./main.wgsl"]
-				t.Errorf("translate (%s)\n  expected (%s)\n  got      (%s)", src, test.Expected, got)
+				t.Errorf("translate (%s)\n  expected (%s)\n  got      (%s)", src, want, got)
 			}
 		})
 	}
@@ -114,9 +118,13 @@ func TestConditionalTranslation(t *testing.T) {
 				t.Errorf("translate failed %v", err)
 			}
 
-			if test.Expected != got {
+			want := test.ExpectedUnderscore
+			if want == "" {
+				want = test.Expected
+			}
+			if want != got {
 				src := test.Srcs["./main.wgsl"]
-				t.Errorf("translate (%s)\n  expected (%s)\n  got      (%s)", src, test.Expected, got)
+				t.Errorf("translate (%s)\n  expected (%s)\n  got      (%s)", src, want, got)
 			}
 		})
 	}

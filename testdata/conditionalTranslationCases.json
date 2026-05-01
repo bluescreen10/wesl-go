@@ -279,7 +279,7 @@
       "./foo.wgsl": "const_assert 0 < 1; fn func() {} fn bar() {}"
     },
     "expectedWgsl": "fn main() { func(); bar(); } const_assert 0 < 1; fn func() { } fn bar() { }",
-    "underscoreWgsl": "fn main() { package_foo_func(); const_assert 0 < 1; package_foo_bar(); } fn package_foo_func() { } fn package_foo_bar() { }"
+    "underscoreWgsl": "fn main() { package_foo_func(); package_foo_bar(); } const_assert 0 < 1; fn package_foo_func() { } fn package_foo_bar() { }"
   },
   {
     "name": "conditional transitive const",

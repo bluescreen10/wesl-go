@@ -112,7 +112,7 @@ func (c *Compiler) Compile(filename string, defines map[string]bool) (string, er
 }
 
 func (c *Compiler) sanitizeName(filename string) string {
-	//return filename
 	name := strings.TrimSuffix(filename, filepath.Ext(filename))
+	name = strings.TrimPrefix(name, "./")
 	return name
 }
