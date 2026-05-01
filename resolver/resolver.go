@@ -250,7 +250,7 @@ func (r *Resolver) scanDependencies(fileName string) ([]importEntry, map[string]
 	for _, d := range file.Decls {
 		switch d := d.(type) {
 		case *ast.ImportDecl:
-			r.flattenItems(nil, d.Items, fileName, &entries)
+			r.collectImports(d, fileName, &entries)
 		default:
 			r.collectInlineRefs(d, &entries, renames, fileName)
 		}
@@ -259,24 +259,21 @@ func (r *Resolver) scanDependencies(fileName string) ([]importEntry, map[string]
 	return entries, renames
 }
 
-// flattenItems walks the import item tree and emits import entries for each leaf.
-// prefix accumulates path segments as we descend non-leaf nodes.
-func (r *Resolver) flattenItems(prefix []string, items []ast.ImportItem, sourceFile string, entries *[]importEntry) {
-	for _, item := range items {
-		if len(item.Items) == 0 {
-			srcFile, origSym := r.resolveImportItem(prefix, item.Name, sourceFile)
-			if srcFile == "" {
-				r.registerModuleImport(prefix, item.Name, sourceFile)
-				continue
-			}
-			desiredName := item.Alias
-			if desiredName == "" {
-				desiredName = item.Name
-			}
-			*entries = append(*entries, importEntry{srcFile, origSym, desiredName})
-		} else {
-			r.flattenItems(append(prefix, item.Name), item.Items, sourceFile, entries)
+// collectImports processes a flat ImportDecl and emits import entries.
+func (r *Resolver) collectImports(d *ast.ImportDecl, sourceFile string, entries *[]importEntry) {
+	for _, imp := range d.Imports {
+		prefix := imp.Path[:len(imp.Path)-1]
+		sym := imp.Path[len(imp.Path)-1]
+		srcFile, origSym := r.resolveImportItem(prefix, sym, sourceFile)
+		if srcFile == "" {
+			r.registerModuleImport(prefix, sym, sourceFile)
+			continue
 		}
+		name := imp.Alias
+		if name == "" {
+			name = sym
+		}
+		*entries = append(*entries, importEntry{srcFile, origSym, name})
 	}
 }
 
@@ -408,30 +405,26 @@ func (r *Resolver) resolveSymbol(srcFilePath, sym string) (string, string) {
 		if !ok {
 			continue
 		}
-		if fp, origSym := r.resolveSymbolInItems(nil, imp.Items, sym, srcFilePath); fp != "" {
+		if fp, origSym := r.resolveSymbolInDecl(imp, sym, srcFilePath); fp != "" {
 			return fp, origSym
 		}
 	}
 	return "", ""
 }
 
-// resolveSymbolInItems searches an import item tree for a leaf whose exported
-// name matches sym, and returns its resolved (filePath, origSym).
-func (r *Resolver) resolveSymbolInItems(prefix []string, items []ast.ImportItem, sym string, sourceFile string) (string, string) {
-	for _, item := range items {
-		if len(item.Items) == 0 {
-			importedName := item.Alias
-			if importedName == "" {
-				importedName = item.Name
-			}
-			if importedName == sym {
-				if fp, origSym := r.resolveImportItem(prefix, item.Name, sourceFile); fp != "" {
-					return fp, origSym
-				}
-			}
-		} else {
-			if fp, origSym := r.resolveSymbolInItems(append(prefix, item.Name), item.Items, sym, sourceFile); fp != "" {
-				return fp, origSym
+// resolveSymbolInDecl searches a flat ImportDecl for an entry whose exported
+// name (alias or last path segment) matches sym.
+func (r *Resolver) resolveSymbolInDecl(d *ast.ImportDecl, sym string, sourceFile string) (string, string) {
+	for _, imp := range d.Imports {
+		importedName := imp.Alias
+		if importedName == "" {
+			importedName = imp.Path[len(imp.Path)-1]
+		}
+		if importedName == sym {
+			prefix := imp.Path[:len(imp.Path)-1]
+			origSym := imp.Path[len(imp.Path)-1]
+			if fp, s := r.resolveImportItem(prefix, origSym, sourceFile); fp != "" {
+				return fp, s
 			}
 		}
 	}

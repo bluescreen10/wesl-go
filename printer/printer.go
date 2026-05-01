@@ -2,6 +2,7 @@ package printer
 
 import (
 	"io"
+	"strings"
 
 	"github.com/bluescreen10/wesl-go/ast"
 )
@@ -215,47 +216,17 @@ func (p *printer) printDecl(d ast.Decl) {
 }
 
 func (p *printer) printImportDecl(d *ast.ImportDecl) {
-	p.writeString(IMPORT)
-	p.writeBytes(WHITESPACE)
-	if len(d.Items) == 1 && len(d.Items[0].Items) == 0 {
-		item := d.Items[0]
-		p.writeString(item.Name)
-		if item.Alias != "" {
+	for _, imp := range d.Imports {
+		p.writeString(IMPORT)
+		p.writeBytes(WHITESPACE)
+		p.writeString(strings.Join(imp.Path, DCOLON))
+		if imp.Alias != "" {
 			p.writeBytes(WHITESPACE)
 			p.writeString(AS)
 			p.writeBytes(WHITESPACE)
-			p.writeString(item.Alias)
+			p.writeString(imp.Alias)
 		}
-	} else {
-		p.writeBytes(LBRACE)
-		for i, item := range d.Items {
-			if i > 0 {
-				p.writeBytes(COMMA, WHITESPACE)
-			}
-			p.printImportItem(item)
-		}
-		p.writeBytes(RBRACE)
-	}
-	p.writeBytes(SEMICOLON)
-}
-
-func (p *printer) printImportItem(item ast.ImportItem) {
-	p.writeString(item.Name)
-	if len(item.Items) > 0 {
-		p.writeString(DCOLON)
-		p.writeBytes(LBRACE)
-		for i, sub := range item.Items {
-			if i > 0 {
-				p.writeBytes(COMMA, WHITESPACE)
-			}
-			p.printImportItem(sub)
-		}
-		p.writeBytes(RBRACE)
-	} else if item.Alias != "" {
-		p.writeBytes(WHITESPACE)
-		p.writeString(AS)
-		p.writeBytes(WHITESPACE)
-		p.writeString(item.Alias)
+		p.writeBytes(SEMICOLON)
 	}
 }
 

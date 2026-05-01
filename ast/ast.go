@@ -97,15 +97,16 @@ type (
 
 	// Import declaration
 	ImportDecl struct {
-		Items []ImportItem
+		Imports []ImportedItem
 	}
 
-	// ImportItem is one node in the import tree.
-	// Leaf nodes (Items == nil) name a symbol; inner nodes name a path segment.
-	ImportItem struct {
-		Name  string
-		Alias string       // only set on leaf nodes with an alias
-		Items []ImportItem // non-nil for inner (brace-group) nodes
+	// ImportedItem is a single fully-qualified import with an optional alias.
+	// Path holds every segment including the leading anchor (package/super) and
+	// the final symbol name.  Example: import package::foo::bar as b
+	// → ImportedItem{Path: ["package","foo","bar"], Alias: "b"}
+	ImportedItem struct {
+		Path  []string
+		Alias string
 	}
 
 	// Reqiures Directive
