@@ -97,8 +97,8 @@
       "./main.wgsl": "import package::file1::foo; import package::file1::bar; fn main() { foo(); bar(); }",
       "./file1.wgsl": "fn foo() { support(); } fn bar() { support(); } fn support() { }"
     },
-    "expectedWgsl": "fn main() { foo(); bar(); } fn foo() { support(); } fn bar() { support(); } fn support() { }",
-    "underscoreWgsl": "fn main() { package_file1_foo(); package_file1_bar(); } fn package_file1_foo() { package_file1_support(); } fn package_file1_bar() { package_file1_support(); } fn package_file1_support() { }"
+    "expectedWgsl": "fn main() { foo(); bar(); } fn foo() { support(); } fn support() { } fn bar() { support(); }",
+    "underscoreWgsl": "fn main() { package_file1_foo(); package_file1_bar(); } fn package_file1_foo() { package_file1_support(); } fn package_file1_support() { } fn package_file1_bar() { package_file1_support(); }"
   },
   {
     "name": "import a struct",
@@ -259,7 +259,7 @@
       "./file2.wgsl": "import package::file1::fie; fn bar() { fie(); }"
     },
     "expectedWgsl": "fn main() { foo(); } fn foo() { bar(); } fn bar() { fie(); } fn fie() { }",
-    "underscoreWgsl": "fn main() { package_file1_foo(); } fn package_file1_foo() { package_file2_bar(); } fn package_file2_bar() { package_file1_fie(); } fn package_file1_fie() { }"
+    "underscoreWgsl": "fn main() { package_file1_foo(); } fn package_file1_foo() { package_file2_bar(); } fn package_file1_fie() { } fn package_file2_bar() { package_file1_fie(); }"
   },
   {
     "name": "inline package reference",
