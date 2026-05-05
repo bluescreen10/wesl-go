@@ -104,7 +104,10 @@ func (c *Compiler) Compile(filename string, defines map[string]bool) (string, er
 		return "", fmt.Errorf("error fetching parsed ast for file %s", filename)
 	}
 
-	ast := resolver.ResolveFile(sanitizedName, c.files, defines)
+	ast, err := resolver.ResolveFile(sanitizedName, c.files, defines)
+	if err != nil {
+		return "", fmt.Errorf("error resolving file: %v", err)
+	}
 
 	var buf bytes.Buffer
 	printer.Fprint(&buf, ast)

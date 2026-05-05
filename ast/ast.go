@@ -1,7 +1,7 @@
 package ast
 
 type Node interface {
-	//node()
+	node()
 }
 
 // type Clause interface {
@@ -158,6 +158,18 @@ func (*RequiresDirective) declNode()   {}
 func (*StructDecl) declNode()          {}
 func (*TypeAliasDecl) declNode()       {}
 
+func (*ConstAssertDecl) node()     {}
+func (*DiagnosticDirective) node() {}
+func (*EnableDirective) node()     {}
+func (*FuncDecl) node()            {}
+func (*GlobalValDecl) node()       {}
+func (*GlobalVarDecl) node()       {}
+func (*ImportDecl) node()          {}
+func (*IfAttrDecl) node()          {}
+func (*RequiresDirective) node()   {}
+func (*StructDecl) node()          {}
+func (*TypeAliasDecl) node()       {}
+
 func (_ *ConstAssertDecl) GetName() string     { return "" }
 func (_ *DiagnosticDirective) GetName() string { return "" }
 func (_ *EnableDirective) GetName() string     { return "" }
@@ -185,8 +197,14 @@ func (d *TypeAliasDecl) SetName(n string)     { d.Name = n }
 func (*IfAttrStructMember) structMemberNode() {}
 func (*StructMember) structMemberNode()       {}
 
+func (*IfAttrStructMember) node() {}
+func (*StructMember) node()       {}
+
 func (*FuncParam) paramNode()   {}
 func (*IfAttrParam) paramNode() {}
+
+func (*FuncParam) node()   {}
+func (*IfAttrParam) node() {}
 
 // ----------------------------------------------------------------------------
 // Stmt
@@ -370,8 +388,32 @@ func (*VarStmt) stmtNode()         {}
 func (*ValStmt) stmtNode()         {}
 func (*WhileStmt) stmtNode()       {}
 
+func (*AssignmentStmt) node()  {}
+func (*BreakStmt) node()       {}
+func (*BreakIfStmt) node()     {}
+func (*CompoundStmt) node()    {}
+func (*ConstAssertStmt) node() {}
+func (*ContinueStmt) node()    {}
+func (*ContinuingStmt) node()  {}
+func (*DiscardStmt) node()     {}
+func (*EmptyStmt) node()       {}
+func (*ForStmt) node()         {}
+func (*FuncCallStmt) node()    {}
+func (*IfStmt) node()          {}
+func (*IfAttrStmt) node()      {}
+func (*IncDecStmt) node()      {}
+func (*LoopStmt) node()        {}
+func (*ReturnStmt) node()      {}
+func (*SwitchStmt) node()      {}
+func (*VarStmt) node()         {}
+func (*ValStmt) node()         {}
+func (*WhileStmt) node()       {}
+
 func (*IfAttrClause) switchClauseNode() {}
 func (*CaseClause) switchClauseNode()   {}
+
+func (*IfAttrClause) node() {}
+func (*CaseClause) node()   {}
 
 // ----------------------------------------------------------------------------
 // Expr
@@ -454,26 +496,44 @@ func (*MemberExpr) exprNode() {}
 func (*ParenExpr) exprNode()  {}
 func (*UnaryExpr) exprNode()  {}
 
+func (*AddrOfExpr) node() {}
+func (*BinaryExpr) node() {}
+func (*CallExpr) node()   {}
+func (*DerefExpr) node()  {}
+func (*Ident) node()      {}
+func (*IndexExpr) node()  {}
+func (*LitExpr) node()    {}
+func (*MemberExpr) node() {}
+func (*ParenExpr) node()  {}
+func (*UnaryExpr) node()  {}
+
 // ----------------------------------------------------------------------------
 // Type, Attributes, Identifiers, Values, etc.
 
 type (
 	// Attribute
 	Attribute struct {
+		Node
 		Name string
 		Args []Expr
 	}
 
 	// Type
 	TypeSpecifier struct {
+		Node
 		Name         string
 		TemplateArgs []Expr
 	}
 )
 
 type File struct {
+	Node
 	Decls []Decl
 }
+
+func (Attribute) node()     {}
+func (TypeSpecifier) node() {}
+func (File) node()          {}
 
 func (ts TypeSpecifier) AsExpr() Expr {
 	if len(ts.TemplateArgs) == 0 {
