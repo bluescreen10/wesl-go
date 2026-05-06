@@ -143,10 +143,10 @@ func (p *printer) printDecl(d ast.Decl) {
 		p.printAttrs(d.Attrs)
 		p.writeString(d.Keyword)
 		p.writeBytes(WHITESPACE)
-		p.writeString(d.Name)
+		p.printIdent(d.Name)
 		if d.Type != nil {
 			p.writeBytes(COLON, WHITESPACE)
-			p.printTypeSpecifier(*d.Type)
+			p.printTypeSpecifier(d.Type)
 		}
 		if d.Init != nil {
 			p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
@@ -158,10 +158,10 @@ func (p *printer) printDecl(d ast.Decl) {
 		p.writeString(VAR)
 		p.printTemplateArgs(d.TemplateArgs)
 		p.writeBytes(WHITESPACE)
-		p.writeString(d.Name)
+		p.printIdent(d.Name)
 		if d.Type != nil {
 			p.writeBytes(COLON, WHITESPACE)
-			p.printTypeSpecifier(*d.Type)
+			p.printTypeSpecifier(d.Type)
 		}
 		if d.Init != nil {
 			p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
@@ -195,7 +195,7 @@ func (p *printer) printDecl(d ast.Decl) {
 		p.printAttrs(d.Attrs)
 		p.writeString(STRUCT)
 		p.writeBytes(WHITESPACE)
-		p.writeString(d.Name)
+		p.printIdent(d.Name)
 		p.writeBytes(WHITESPACE, LBRACE, WHITESPACE)
 		for i, m := range d.Members {
 			if i > 0 {
@@ -208,7 +208,7 @@ func (p *printer) printDecl(d ast.Decl) {
 		p.printAttrs(d.Attrs)
 		p.writeString(ALIAS)
 		p.writeBytes(WHITESPACE)
-		p.writeString(d.Name)
+		p.printIdent(d.Name)
 		p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
 		p.printTypeSpecifier(d.Type)
 		p.writeBytes(SEMICOLON)
@@ -267,7 +267,7 @@ func (p *printer) printExpr(e ast.Expr) {
 		p.writeBytes(STAR)
 		p.printExpr(e.Operand)
 	case *ast.Ident:
-		p.writeString(e.Name)
+		p.printIdent(e)
 	case *ast.IndexExpr:
 		p.printExpr(e.Base)
 		p.writeBytes(LBRACKET)
@@ -388,10 +388,10 @@ func (p *printer) printStmt(s ast.Stmt) {
 		p.writeString(VAR)
 		p.printTemplateArgs(s.TemplateArgs)
 		p.writeBytes(WHITESPACE)
-		p.writeString(s.Name)
+		p.printIdent(s.Name)
 		if s.Type != nil {
 			p.writeBytes(COLON, WHITESPACE)
-			p.printTypeSpecifier(*s.Type)
+			p.printTypeSpecifier(s.Type)
 		}
 		if s.Init != nil {
 			p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
@@ -401,10 +401,10 @@ func (p *printer) printStmt(s ast.Stmt) {
 		p.printAttrs(s.Attrs)
 		p.writeString(s.Keyword)
 		p.writeBytes(WHITESPACE)
-		p.writeString(s.Name)
+		p.printIdent(s.Name)
 		if s.Type != nil {
 			p.writeBytes(COLON, WHITESPACE)
-			p.printTypeSpecifier(*s.Type)
+			p.printTypeSpecifier(s.Type)
 		}
 		p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
 		p.printExpr(s.Init)
@@ -418,6 +418,10 @@ func (p *printer) printStmt(s ast.Stmt) {
 		}
 		p.printCompoundStmt(s.Body)
 	}
+}
+
+func (p *printer) printIdent(i *ast.Ident) {
+	p.writeString(i.Val)
 }
 
 func (p *printer) printClauses(clauses []ast.Clause) {
@@ -506,14 +510,14 @@ func (p *printer) printFuncDecl(f *ast.FuncDecl) {
 	p.printAttrs(f.Attrs)
 	p.writeString(FUNC)
 	p.writeBytes(WHITESPACE)
-	p.writeString(f.Name)
+	p.printIdent(f.Name)
 	p.printParamList(f.Params)
 	p.writeBytes(WHITESPACE)
 	if f.ReturnType != nil {
 		p.writeString(ARROW)
 		p.writeBytes(WHITESPACE)
 		p.printAttrs(f.ReturnAttrs)
-		p.printTypeSpecifier(*f.ReturnType)
+		p.printTypeSpecifier(f.ReturnType)
 		p.writeBytes(WHITESPACE)
 	}
 	p.printCompoundStmt(f.Body)
@@ -582,7 +586,7 @@ func (p *printer) printParam(param ast.Param) {
 	}
 }
 
-func (p *printer) printTypeSpecifier(t ast.TypeSpecifier) {
+func (p *printer) printTypeSpecifier(t *ast.TypeSpecifier) {
 	p.writeString(t.Name)
 	p.printTemplateArgs(t.TemplateArgs)
 }

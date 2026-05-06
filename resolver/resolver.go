@@ -76,16 +76,14 @@ func (r *Resolver) nameFor(file, sym string) string {
 
 func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 	defer func() {
-		if r := recover(); r != nil {
-			if e := recover(); e != nil {
-				switch e := e.(type) {
-				case error:
-					err = e
-				case string:
-					err = errors.New(e)
-				default:
-					panic(e)
-				}
+		if e := recover(); e != nil {
+			switch e := e.(type) {
+			case error:
+				err = e
+			case string:
+				err = errors.New(e)
+			default:
+				panic(e)
 			}
 		}
 	}()
@@ -213,38 +211,15 @@ func (r *Resolver) resolveRefDecl(mod *resolvedModule, d ast.Decl, scope scopeSt
 func (r *Resolver) resolveRefFuncDecl(mod *resolvedModule, f *ast.FuncDecl, scope scopeStack) {
 	for _, p := range f.Params {
 		if fp, ok := p.(*ast.FuncParam); ok {
-			r.resolveRefType(mod, &fp.Type, scope)
+			r.resolveRefType(mod, fp.Type, scope)
 		}
 	}
 	if f.ReturnType != nil {
 		r.resolveRefType(mod, f.ReturnType, scope)
 	}
 	if f.Body != nil {
-		for _, s := range f.Body.Stmts {
-			ast.Walk(s, func(s ast.Node) bool {
-				switch n := s.(type) {
-				case *ast.VarStmt:
-					if n.Type != nil {
-						r.resolveRefType(mod, n.Type, scope)
-					}
-					scope.add(n.Name)
-				case *ast.ValStmt:
-					if n.Type != nil {
-						r.resolveRefType(mod, n.Type, scope)
-					}
-					scope.add(n.Name)
-				case *ast.CallExpr:
-					orig := n.Callee
-					r.resolveRefExprName(mod, orig, scope)
-					n.Callee = r.getExprRename(mod, orig, scope)
-				case *ast.Ident:
-					orig := n.Name
-					r.resolveRefExprName(mod, orig, scope)
-					n.Name = r.getExprRename(mod, orig, scope)
-				}
-				return true
-			})
-		}
+		w := &refWalker{r: r, mod: mod, scope: &scope}
+		ast.Walk(f.Body, w.walk)
 	}
 }
 
@@ -254,9 +229,9 @@ func (r *Resolver) resolveRefType(mod *resolvedModule, typ *ast.TypeSpecifier, s
 		ast.Walk(arg, func(n ast.Node) bool {
 			switch n := n.(type) {
 			case *ast.Ident:
-				orig := n.Name
+				orig := n.Val
 				r.resolveRefExprName(mod, orig, scope)
-				n.Name = r.getExprRename(mod, orig, scope)
+				n.Val = r.getExprRename(mod, orig, scope)
 			}
 			return true
 		})
@@ -379,13 +354,13 @@ func (r *Resolver) getRenameName(mod *resolvedModule, name string, scope scopeSt
 func (r *Resolver) resolveRefStructDecl(mod *resolvedModule, s *ast.StructDecl, scope scopeStack) {
 	for _, m := range s.Members {
 		if sf, ok := m.(*ast.StructMember); ok {
-			r.resolveRefType(mod, &sf.Type, scope)
+			r.resolveRefType(mod, sf.Type, scope)
 		}
 	}
 }
 
 func (r *Resolver) resolveRefTypeAliasDecl(mod *resolvedModule, a *ast.TypeAliasDecl, scope scopeStack) {
-	r.resolveRefType(mod, &a.Type, scope)
+	r.resolveRefType(mod, a.Type, scope)
 }
 
 func (r *Resolver) resolveRefGlobalVarDecl(mod *resolvedModule, v *ast.GlobalVarDecl, scope scopeStack) {
@@ -400,9 +375,9 @@ func (r *Resolver) resolveRefGlobalVarDecl(mod *resolvedModule, v *ast.GlobalVar
 				r.resolveRefExprName(mod, orig, scope)
 				n.Callee = r.getExprRename(mod, orig, scope)
 			case *ast.Ident:
-				orig := n.Name
+				orig := n.Val
 				r.resolveRefExprName(mod, orig, scope)
-				n.Name = r.getExprRename(mod, orig, scope)
+				n.Val = r.getExprRename(mod, orig, scope)
 			}
 			return true
 		})
@@ -421,9 +396,9 @@ func (r *Resolver) resolveRefGlobalValDecl(mod *resolvedModule, v *ast.GlobalVal
 				r.resolveRefExprName(mod, orig, scope)
 				n.Callee = r.getExprRename(mod, orig, scope)
 			case *ast.Ident:
-				orig := n.Name
+				orig := n.Val
 				r.resolveRefExprName(mod, orig, scope)
-				n.Name = r.getExprRename(mod, orig, scope)
+				n.Val = r.getExprRename(mod, orig, scope)
 			}
 			return true
 		})
@@ -540,12 +515,59 @@ func isBuiltinType(typ string) bool {
 	}
 }
 
+// refWalker carries the state needed to resolve and rename references inside a
+// function body. Using a struct with a method avoids a self-referential closure.
+type refWalker struct {
+	r     *Resolver
+	mod   *resolvedModule
+	scope *scopeStack
+}
+
+func (w *refWalker) walk(n ast.Node) bool {
+	switch n := n.(type) {
+	case *ast.CompoundStmt:
+		w.scope.push()
+		for _, s := range n.Stmts {
+			ast.Walk(s, w.walk)
+		}
+		w.scope.pop()
+		return false
+	case *ast.VarStmt:
+		if n.Type != nil {
+			w.r.resolveRefType(w.mod, n.Type, *w.scope)
+		}
+		w.scope.add(n.Name.Val)
+	case *ast.ValStmt:
+		if n.Type != nil {
+			w.r.resolveRefType(w.mod, n.Type, *w.scope)
+		}
+		w.scope.add(n.Name.Val)
+	case *ast.CallExpr:
+		orig := n.Callee
+		w.r.resolveRefExprName(w.mod, orig, *w.scope)
+		n.Callee = w.r.getExprRename(w.mod, orig, *w.scope)
+	case *ast.Ident:
+		orig := n.Val
+		w.r.resolveRefExprName(w.mod, orig, *w.scope)
+		n.Val = w.r.getExprRename(w.mod, orig, *w.scope)
+	}
+	return true
+}
+
 type scopeStack struct {
 	blocks []map[string]struct{}
 }
 
 func newScopeStack() scopeStack {
 	return scopeStack{blocks: []map[string]struct{}{make(map[string]struct{})}}
+}
+
+func (s *scopeStack) push() {
+	s.blocks = append(s.blocks, make(map[string]struct{}))
+}
+
+func (s *scopeStack) pop() {
+	s.blocks = s.blocks[:len(s.blocks)-1]
 }
 
 func (s *scopeStack) add(name string) {

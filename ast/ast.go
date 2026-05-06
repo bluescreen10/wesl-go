@@ -50,7 +50,7 @@ type (
 
 	// Function
 	FuncDecl struct {
-		Name        string
+		Name        *Ident
 		Attrs       []Attribute
 		Params      []Param
 		ReturnAttrs []Attribute
@@ -67,7 +67,7 @@ type (
 	// Param
 	FuncParam struct {
 		Name  string
-		Type  TypeSpecifier
+		Type  *TypeSpecifier
 		Attrs []Attribute
 	}
 
@@ -78,7 +78,7 @@ type (
 	GlobalValDecl struct {
 		Keyword string
 		Attrs   []Attribute
-		Name    string
+		Name    *Ident
 		Type    *TypeSpecifier
 		Init    Expr
 	}
@@ -87,7 +87,7 @@ type (
 	GlobalVarDecl struct {
 		Attrs        []Attribute
 		TemplateArgs []Expr
-		Name         string
+		Name         *Ident
 		Type         *TypeSpecifier
 		Init         Expr
 	}
@@ -117,7 +117,7 @@ type (
 
 	// Struct
 	StructDecl struct {
-		Name    string
+		Name    *Ident
 		Attrs   []Attribute
 		Members []Member
 	}
@@ -132,7 +132,7 @@ type (
 	StructMember struct {
 		Name  string
 		Attrs []Attribute
-		Type  TypeSpecifier
+		Type  *TypeSpecifier
 	}
 
 	// @if Struct Member
@@ -140,9 +140,9 @@ type (
 
 	// Type Alias
 	TypeAliasDecl struct {
-		Name  string
+		Name  *Ident
 		Attrs []Attribute
-		Type  TypeSpecifier
+		Type  *TypeSpecifier
 	}
 )
 
@@ -173,26 +173,26 @@ func (*TypeAliasDecl) node()       {}
 func (_ *ConstAssertDecl) GetName() string     { return "" }
 func (_ *DiagnosticDirective) GetName() string { return "" }
 func (_ *EnableDirective) GetName() string     { return "" }
-func (d *FuncDecl) GetName() string            { return d.Name }
-func (d *GlobalValDecl) GetName() string       { return d.Name }
-func (d *GlobalVarDecl) GetName() string       { return d.Name }
+func (d *FuncDecl) GetName() string            { return d.Name.Val }
+func (d *GlobalValDecl) GetName() string       { return d.Name.Val }
+func (d *GlobalVarDecl) GetName() string       { return d.Name.Val }
 func (_ *ImportDecl) GetName() string          { return "" }
 func (_ *IfAttrDecl) GetName() string          { return "" }
 func (_ *RequiresDirective) GetName() string   { return "" }
-func (d *StructDecl) GetName() string          { return d.Name }
-func (d *TypeAliasDecl) GetName() string       { return d.Name }
+func (d *StructDecl) GetName() string          { return d.Name.Val }
+func (d *TypeAliasDecl) GetName() string       { return d.Name.Val }
 
 func (_ *ConstAssertDecl) SetName(string)     {}
 func (_ *DiagnosticDirective) SetName(string) {}
 func (_ *EnableDirective) SetName(string)     {}
-func (d *FuncDecl) SetName(n string)          { d.Name = n }
-func (d *GlobalValDecl) SetName(n string)     { d.Name = n }
-func (d *GlobalVarDecl) SetName(n string)     { d.Name = n }
+func (d *FuncDecl) SetName(n string)          { d.Name.Val = n }
+func (d *GlobalValDecl) SetName(n string)     { d.Name.Val = n }
+func (d *GlobalVarDecl) SetName(n string)     { d.Name.Val = n }
 func (_ *ImportDecl) SetName(string)          {}
 func (_ *IfAttrDecl) SetName(string)          {}
 func (_ *RequiresDirective) SetName(string)   {}
-func (d *StructDecl) SetName(n string)        { d.Name = n }
-func (d *TypeAliasDecl) SetName(n string)     { d.Name = n }
+func (d *StructDecl) SetName(n string)        { d.Name.Val = n }
+func (d *TypeAliasDecl) SetName(n string)     { d.Name.Val = n }
 
 func (*IfAttrStructMember) structMemberNode() {}
 func (*StructMember) structMemberNode()       {}
@@ -345,7 +345,7 @@ type (
 	VarStmt struct {
 		Attrs        []Attribute
 		TemplateArgs []Expr
-		Name         string
+		Name         *Ident
 		Type         *TypeSpecifier
 		Init         Expr
 	}
@@ -354,7 +354,7 @@ type (
 	ValStmt struct {
 		Attrs   []Attribute
 		Keyword string
-		Name    string
+		Name    *Ident
 		Type    *TypeSpecifier
 		Init    Expr
 	}
@@ -453,7 +453,7 @@ type (
 
 	// Ident
 	Ident struct {
-		Name string
+		Val string
 	}
 
 	// Index
@@ -537,7 +537,7 @@ func (File) node()          {}
 
 func (ts TypeSpecifier) AsExpr() Expr {
 	if len(ts.TemplateArgs) == 0 {
-		return &Ident{Name: ts.Name}
+		return &Ident{Val: ts.Name}
 	}
 	return &CallExpr{Callee: ts.Name, TemplateArgs: ts.TemplateArgs}
 }

@@ -337,7 +337,7 @@ func (p *parser) parseStructDecl(attrs []ast.Attribute) *ast.StructDecl {
 	}
 	p.expect(tokenRBrace)
 
-	return &ast.StructDecl{Attrs: attrs, Name: tok.val, Members: members}
+	return &ast.StructDecl{Attrs: attrs, Name: &ast.Ident{Val: tok.val}, Members: members}
 }
 
 func (p *parser) parseStructMember() *ast.StructMember {
@@ -371,7 +371,7 @@ func (p *parser) parseTypeAliasDecl(attrs []ast.Attribute) *ast.TypeAliasDecl {
 	p.expect(tokenEqual)
 	ts := p.parseTypeSpecifier()
 	p.expect(tokenSemicolon)
-	return &ast.TypeAliasDecl{Attrs: attrs, Name: tok.val, Type: ts}
+	return &ast.TypeAliasDecl{Attrs: attrs, Name: &ast.Ident{Val: tok.val}, Type: ts}
 }
 
 //	variable_decl ( '=' expression )?
@@ -447,15 +447,14 @@ func (p *parser) parseFuncDecl(attrs []ast.Attribute) *ast.FuncDecl {
 	var retType *ast.TypeSpecifier
 	if p.accept(tokenArrow) {
 		retAttrs = p.parseAttributes()
-		typ := p.parseTypeSpecifier()
-		retType = &typ
+		retType = p.parseTypeSpecifier()
 	}
 
 	body := p.parseCompoundStatement(nil)
 
 	return &ast.FuncDecl{
 		Attrs:       attrs,
-		Name:        name.val,
+		Name:        &ast.Ident{Val: name.val},
 		Params:      params,
 		ReturnAttrs: retAttrs,
 		ReturnType:  retType,
@@ -898,7 +897,7 @@ func (p *parser) parseCaseSelectors() []ast.Expr {
 	var selectors []ast.Expr
 	for {
 		if p.accept(tokenDefault) {
-			selectors = append(selectors, &ast.Ident{Name: "default"})
+			selectors = append(selectors, &ast.Ident{Val: "default"})
 		} else {
 			selectors = append(selectors, p.parseExpression())
 		}
@@ -1118,7 +1117,7 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 		if p.at(tokenLParen) {
 			return &ast.CallExpr{Callee: ident, Args: p.parseArgumentExpressionList()}
 		}
-		return &ast.Ident{Name: ident}
+		return &ast.Ident{Val: ident}
 
 	case tokenIdent:
 		ident := tok.val
@@ -1131,7 +1130,7 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 			if p.at(tokenLParen) {
 				return &ast.CallExpr{Callee: ident, Args: p.parseArgumentExpressionList()}
 			}
-			return &ast.Ident{Name: ident}
+			return &ast.Ident{Val: ident}
 		}
 
 		if isTemplateableIdent(tok.val) && p.at(tokenLAngle) {
@@ -1144,7 +1143,7 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 		if p.at(tokenLParen) {
 			return &ast.CallExpr{Callee: tok.val, Args: p.parseArgumentExpressionList()}
 		}
-		return &ast.Ident{Name: tok.val}
+		return &ast.Ident{Val: tok.val}
 
 	default:
 		p.unexpected(tok)
@@ -1209,7 +1208,7 @@ func (p *parser) parseTemplateArg() ast.Expr {
 //	type_specifier : ident template_list?
 //
 // parseTypeSpecifier parses a type reference:
-func (p *parser) parseTypeSpecifier() ast.TypeSpecifier {
+func (p *parser) parseTypeSpecifier() *ast.TypeSpecifier {
 	tok := p.expect(tokenIdent)
 
 	var args []ast.Expr
@@ -1217,17 +1216,16 @@ func (p *parser) parseTypeSpecifier() ast.TypeSpecifier {
 		args = p.parseTemplateList()
 	}
 
-	return ast.TypeSpecifier{Name: tok.val, TemplateArgs: args}
+	return &ast.TypeSpecifier{Name: tok.val, TemplateArgs: args}
 }
 
-func (p *parser) parseOptionallyTypedIdent() (string, *ast.TypeSpecifier) {
+func (p *parser) parseOptionallyTypedIdent() (*ast.Ident, *ast.TypeSpecifier) {
 	tok := p.expect(tokenIdent)
 	var typ *ast.TypeSpecifier
 	if p.accept(tokenColon) {
-		ts := p.parseTypeSpecifier()
-		typ = &ts
+		typ = p.parseTypeSpecifier()
 	}
-	return tok.val, typ
+	return &ast.Ident{Val: tok.val}, typ
 }
 
 func (p *parser) parseArgumentExpressionList() []ast.Expr {

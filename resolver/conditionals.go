@@ -183,7 +183,7 @@ func (r *Resolver) evalCondition(expr ast.Expr) bool {
 		}
 
 	case *ast.Ident:
-		return r.defines[e.Name] // missing key → false
+		return r.defines[e.Val] // missing key → false
 
 	case *ast.UnaryExpr:
 		if e.Op == "!" {
