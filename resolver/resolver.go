@@ -106,16 +106,7 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 	// resolveRefs marks used symbols AND renames references in-place.
 	r.resolveRefs(mod)
 
-	var decls []ast.Decl
-
-	// Emit root module's local decls first (refs already renamed in-place).
-	for _, d := range mod.file.Decls {
-		if _, ok := d.(*ast.ImportDecl); ok {
-			continue
-		}
-		cloned := cloneDecl(d)
-		decls = append(decls, cloned)
-	}
+	decls := mod.file.Decls
 
 	// Emit imported modules in load order (index 0 is root, skip it).
 	for _, filePath := range r.loadOrder[1:] {
@@ -230,22 +221,27 @@ func (r *Resolver) resolveRefFuncDecl(mod *resolvedModule, f *ast.FuncDecl, scop
 	}
 	if f.Body != nil {
 		for _, s := range f.Body.Stmts {
-			ast.WalkStmt(s, func(s ast.Stmt) bool {
-				switch st := s.(type) {
+			ast.Walk(s, func(s ast.Node) bool {
+				switch n := s.(type) {
 				case *ast.VarStmt:
-					if st.Type != nil {
-						r.resolveRefType(mod, st.Type, scope)
+					if n.Type != nil {
+						r.resolveRefType(mod, n.Type, scope)
 					}
-					scope.add(st.Name)
+					scope.add(n.Name)
 				case *ast.ValStmt:
-					if st.Type != nil {
-						r.resolveRefType(mod, st.Type, scope)
+					if n.Type != nil {
+						r.resolveRefType(mod, n.Type, scope)
 					}
-					scope.add(st.Name)
+					scope.add(n.Name)
+				case *ast.CallExpr:
+					orig := n.Callee
+					r.resolveRefExprName(mod, orig, scope)
+					n.Callee = r.getExprRename(mod, orig, scope)
+				case *ast.Ident:
+					orig := n.Name
+					r.resolveRefExprName(mod, orig, scope)
+					n.Name = r.getExprRename(mod, orig, scope)
 				}
-				return true
-			}, func(e ast.Expr) bool {
-				r.resolveRefExpr(mod, e, scope)
 				return true
 			})
 		}
@@ -255,8 +251,13 @@ func (r *Resolver) resolveRefFuncDecl(mod *resolvedModule, f *ast.FuncDecl, scop
 // resolveRefType resolves and renames a TypeSpecifier in-place.
 func (r *Resolver) resolveRefType(mod *resolvedModule, typ *ast.TypeSpecifier, scope scopeStack) {
 	for _, arg := range typ.TemplateArgs {
-		ast.WalkExpr(arg, func(e ast.Expr) bool {
-			r.resolveRefExpr(mod, e, scope)
+		ast.Walk(arg, func(n ast.Node) bool {
+			switch n := n.(type) {
+			case *ast.Ident:
+				orig := n.Name
+				r.resolveRefExprName(mod, orig, scope)
+				n.Name = r.getExprRename(mod, orig, scope)
+			}
 			return true
 		})
 	}
@@ -303,20 +304,6 @@ func (r *Resolver) resolveRefName(mod *resolvedModule, name string, scope scopeS
 		if d := m.symbols[i.sym]; d != nil {
 			r.resolveRefDecl(m, d, newScopeStack())
 		}
-	}
-}
-
-// resolveRefExpr marks used symbols and renames the node in-place.
-func (r *Resolver) resolveRefExpr(mod *resolvedModule, e ast.Expr, scope scopeStack) {
-	switch ex := e.(type) {
-	case *ast.CallExpr:
-		orig := ex.Callee
-		r.resolveRefExprName(mod, orig, scope)
-		ex.Callee = r.getExprRename(mod, orig, scope)
-	case *ast.Ident:
-		orig := ex.Name
-		r.resolveRefExprName(mod, orig, scope)
-		ex.Name = r.getExprRename(mod, orig, scope)
 	}
 }
 
@@ -406,8 +393,17 @@ func (r *Resolver) resolveRefGlobalVarDecl(mod *resolvedModule, v *ast.GlobalVar
 		r.resolveRefType(mod, v.Type, scope)
 	}
 	if v.Init != nil {
-		ast.WalkExpr(v.Init, func(e ast.Expr) bool {
-			r.resolveRefExpr(mod, e, scope)
+		ast.Walk(v.Init, func(n ast.Node) bool {
+			switch n := n.(type) {
+			case *ast.CallExpr:
+				orig := n.Callee
+				r.resolveRefExprName(mod, orig, scope)
+				n.Callee = r.getExprRename(mod, orig, scope)
+			case *ast.Ident:
+				orig := n.Name
+				r.resolveRefExprName(mod, orig, scope)
+				n.Name = r.getExprRename(mod, orig, scope)
+			}
 			return true
 		})
 	}
@@ -418,8 +414,17 @@ func (r *Resolver) resolveRefGlobalValDecl(mod *resolvedModule, v *ast.GlobalVal
 		r.resolveRefType(mod, v.Type, scope)
 	}
 	if v.Init != nil {
-		ast.WalkExpr(v.Init, func(e ast.Expr) bool {
-			r.resolveRefExpr(mod, e, scope)
+		ast.Walk(v.Init, func(n ast.Node) bool {
+			switch n := n.(type) {
+			case *ast.CallExpr:
+				orig := n.Callee
+				r.resolveRefExprName(mod, orig, scope)
+				n.Callee = r.getExprRename(mod, orig, scope)
+			case *ast.Ident:
+				orig := n.Name
+				r.resolveRefExprName(mod, orig, scope)
+				n.Name = r.getExprRename(mod, orig, scope)
+			}
 			return true
 		})
 	}
