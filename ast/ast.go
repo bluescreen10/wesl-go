@@ -283,7 +283,7 @@ type (
 	// Function Call
 	FuncCallStmt struct {
 		Attrs []Attribute
-		Call  CallExpr
+		Call  *CallExpr
 	}
 
 	// If
@@ -438,7 +438,7 @@ type (
 
 	// Function Call
 	CallExpr struct {
-		Callee       string
+		Callee       *Ident
 		TemplateArgs []Expr
 		Args         []Expr
 	}
@@ -539,5 +539,5 @@ func (ts TypeSpecifier) AsExpr() Expr {
 	if len(ts.TemplateArgs) == 0 {
 		return &Ident{Val: ts.Name}
 	}
-	return &CallExpr{Callee: ts.Name, TemplateArgs: ts.TemplateArgs}
+	return &CallExpr{Callee: &Ident{Val: ts.Name}, TemplateArgs: ts.TemplateArgs}
 }

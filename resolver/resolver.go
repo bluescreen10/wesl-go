@@ -1,7 +1,6 @@
 package resolver
 
 import (
-	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -75,18 +74,18 @@ func (r *Resolver) nameFor(file, sym string) string {
 }
 
 func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			switch e := e.(type) {
-			case error:
-				err = e
-			case string:
-				err = errors.New(e)
-			default:
-				panic(e)
-			}
-		}
-	}()
+	// defer func() {
+	// 	if e := recover(); e != nil {
+	// 		switch e := e.(type) {
+	// 		case error:
+	// 			err = e
+	// 		case string:
+	// 			err = errors.New(e)
+	// 		default:
+	// 			panic(e)
+	// 		}
+	// 	}
+	// }()
 
 	r.rootFile = filename
 	mod := r.loadModule(filename)
@@ -371,9 +370,9 @@ func (r *Resolver) resolveRefGlobalVarDecl(mod *resolvedModule, v *ast.GlobalVar
 		ast.Walk(v.Init, func(n ast.Node) bool {
 			switch n := n.(type) {
 			case *ast.CallExpr:
-				orig := n.Callee
+				orig := n.Callee.Val
 				r.resolveRefExprName(mod, orig, scope)
-				n.Callee = r.getExprRename(mod, orig, scope)
+				n.Callee.Val = r.getExprRename(mod, orig, scope)
 			case *ast.Ident:
 				orig := n.Val
 				r.resolveRefExprName(mod, orig, scope)
@@ -392,9 +391,9 @@ func (r *Resolver) resolveRefGlobalValDecl(mod *resolvedModule, v *ast.GlobalVal
 		ast.Walk(v.Init, func(n ast.Node) bool {
 			switch n := n.(type) {
 			case *ast.CallExpr:
-				orig := n.Callee
+				orig := n.Callee.Val
 				r.resolveRefExprName(mod, orig, scope)
-				n.Callee = r.getExprRename(mod, orig, scope)
+				n.Callee.Val = r.getExprRename(mod, orig, scope)
 			case *ast.Ident:
 				orig := n.Val
 				r.resolveRefExprName(mod, orig, scope)
@@ -543,9 +542,9 @@ func (w *refWalker) walk(n ast.Node) bool {
 		}
 		w.scope.add(n.Name.Val)
 	case *ast.CallExpr:
-		orig := n.Callee
+		orig := n.Callee.Val
 		w.r.resolveRefExprName(w.mod, orig, *w.scope)
-		n.Callee = w.r.getExprRename(w.mod, orig, *w.scope)
+		n.Callee.Val = w.r.getExprRename(w.mod, orig, *w.scope)
 	case *ast.Ident:
 		orig := n.Val
 		w.r.resolveRefExprName(w.mod, orig, *w.scope)

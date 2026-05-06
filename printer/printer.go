@@ -347,7 +347,7 @@ func (p *printer) printStmt(s ast.Stmt) {
 		p.printIfStmt(s)
 	case *ast.FuncCallStmt:
 		p.printAttrs(s.Attrs)
-		p.printCallExpr(&s.Call)
+		p.printCallExpr(s.Call)
 	case *ast.ForStmt:
 		p.printAttrs(s.Attrs)
 		p.writeString(FOR)
@@ -462,7 +462,7 @@ func (p *printer) printClause(c ast.Clause) {
 }
 
 func (p *printer) printCallExpr(e *ast.CallExpr) {
-	p.writeString(e.Callee)
+	p.printIdent(e.Callee)
 	p.printTemplateArgs(e.TemplateArgs)
 	p.writeBytes(LPAREN)
 	p.printExprList(e.Args)

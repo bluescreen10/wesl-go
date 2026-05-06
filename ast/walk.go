@@ -9,79 +9,69 @@ func Walk(n Node, fn func(Node) bool) {
 
 	// Decls
 	case *File:
-		for _, d := range n.Decls {
-			Walk(d, fn)
-		}
+		WalkList(n.Decls, fn)
 	case *GlobalValDecl:
-		for _, a := range n.Attrs {
-			Walk(a, fn)
-		}
+		WalkList(n.Attrs, fn)
+		Walk(n.Name, fn)
 		Walk(n.Type, fn)
 		Walk(n.Init, fn)
 	case *GlobalVarDecl:
-		for _, a := range n.Attrs {
-			Walk(a, fn)
-		}
+		WalkList(n.Attrs, fn)
+		Walk(n.Name, fn)
 		Walk(n.Type, fn)
 		Walk(n.Init, fn)
 	case *RequiresDirective:
-		for _, a := range n.Attrs {
-			Walk(a, fn)
-		}
+		WalkList(n.Attrs, fn)
 	case *EnableDirective:
-		for _, a := range n.Attrs {
-			Walk(a, fn)
-		}
+		WalkList(n.Attrs, fn)
 	case *ConstAssertDecl:
 		Walk(n.Assert, fn)
 	case *DiagnosticDirective:
-		for _, a := range n.Attrs {
-			Walk(a, fn)
-		}
+		WalkList(n.Attrs, fn)
 	case *IfAttrDecl:
 		Walk(n.Cond, fn)
 		Walk(n.Then, fn)
 		Walk(n.Else, fn)
 	case *FuncDecl:
-		for _, a := range n.Attrs {
-			Walk(a, fn)
-		}
-		for _, p := range n.Params {
-			Walk(p, fn)
-		}
-
+		WalkList(n.Attrs, fn)
+		Walk(n.Name, fn)
+		WalkList(n.Params, fn)
+		WalkList(n.ReturnAttrs, fn)
 		Walk(n.ReturnType, fn)
+		Walk(n.Body, fn)
 	case *StructDecl:
-		for _, a := range n.Attrs {
-			Walk(a, fn)
-		}
-		for _, m := range n.Members {
-			Walk(m, fn)
-		}
+		WalkList(n.Attrs, fn)
+		WalkList(n.Members, fn)
 
 	// Stmt
 	case *AssignmentStmt:
+		WalkList(n.Attrs, fn)
 		Walk(n.LHS, fn)
 		Walk(n.RHS, fn)
 	case *ReturnStmt:
+		WalkList(n.Attrs, fn)
 		Walk(n.Value, fn)
 	case *VarStmt:
+		WalkList(n.Attrs, fn)
 		Walk(n.Init, fn)
 	case *ValStmt:
+		WalkList(n.Attrs, fn)
 		Walk(n.Init, fn)
 	case *FuncCallStmt:
-		Walk(&n.Call, fn)
+		WalkList(n.Attrs, fn)
+		Walk(n.Call, fn)
 	case *IncDecStmt:
+		WalkList(n.Attrs, fn)
 		Walk(n.LHS, fn)
 	case *CompoundStmt:
-		for _, s := range n.Stmts {
-			Walk(s, fn)
-		}
+		WalkList(n.Attrs, fn)
+		WalkList(n.Stmts, fn)
 	case *IfAttrStmt:
 		Walk(n.Cond, fn)
 		Walk(n.Then, fn)
 		Walk(n.Else, fn)
 	case *IfStmt:
+		WalkList(n.Attrs, fn)
 		Walk(n.Cond, fn)
 		if n.Then != nil {
 			Walk(n.Then, fn)
@@ -93,34 +83,31 @@ func Walk(n Node, fn func(Node) bool) {
 			Walk(n.Else, fn)
 		}
 	case *ForStmt:
+		WalkList(n.Attrs, fn)
 		if n.Init != nil {
 			Walk(n.Init, fn)
 		}
-		Walk(n.Cond, fn)
+		if n.Cond != nil {
+			Walk(n.Cond, fn)
+		}
 		if n.Update != nil {
 			Walk(n.Update, fn)
 		}
-		if n.Body != nil {
-			Walk(n.Body, fn)
-		}
+		Walk(n.Body, fn)
 	case *WhileStmt:
+		WalkList(n.Attrs, fn)
 		Walk(n.Cond, fn)
-		if n.Body != nil {
-			Walk(n.Body, fn)
-		}
+		Walk(n.Body, fn)
 	case *LoopStmt:
-		if n.Body != nil {
-			Walk(n.Body, fn)
-		}
+		WalkList(n.Attrs, fn)
+		Walk(n.Body, fn)
 	case *ContinuingStmt:
-		if n.Body != nil {
-			Walk(n.Body, fn)
-		}
+		WalkList(n.Attrs, fn)
+		Walk(n.Body, fn)
 	case *SwitchStmt:
+		WalkList(n.Attrs, fn)
 		Walk(n.Expr, fn)
-		for _, cl := range n.Clauses {
-			Walk(cl, fn)
-		}
+		WalkList(n.Clauses, fn)
 
 	// Expr
 	case *BinaryExpr:
@@ -129,12 +116,9 @@ func Walk(n Node, fn func(Node) bool) {
 	case *UnaryExpr:
 		Walk(n.Operand, fn)
 	case *CallExpr:
-		for _, a := range n.Args {
-			Walk(a, fn)
-		}
-		for _, a := range n.TemplateArgs {
-			Walk(a, fn)
-		}
+		Walk(n.Callee, fn)
+		WalkList(n.Args, fn)
+		WalkList(n.TemplateArgs, fn)
 	case *IndexExpr:
 		Walk(n.Base, fn)
 		Walk(n.Index, fn)
@@ -147,5 +131,11 @@ func Walk(n Node, fn func(Node) bool) {
 	case *ParenExpr:
 		Walk(n.Inner, fn)
 		// Ident, LitExpr: leaves, no children
+	}
+}
+
+func WalkList[T Node](items []T, fn func(Node) bool) {
+	for _, i := range items {
+		Walk(i, fn)
 	}
 }

@@ -763,7 +763,7 @@ func (p *parser) parseExpressionStatement(attrs []ast.Attribute) ast.Stmt {
 		if !ok {
 			p.unexpected(p.peek())
 		}
-		return &ast.FuncCallStmt{Attrs: attrs, Call: *call}
+		return &ast.FuncCallStmt{Attrs: attrs, Call: call}
 	}
 }
 
@@ -1115,7 +1115,7 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 			p.accept(tokenColonColon)
 		}
 		if p.at(tokenLParen) {
-			return &ast.CallExpr{Callee: ident, Args: p.parseArgumentExpressionList()}
+			return &ast.CallExpr{Callee: &ast.Ident{Val: ident}, Args: p.parseArgumentExpressionList()}
 		}
 		return &ast.Ident{Val: ident}
 
@@ -1128,7 +1128,7 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 		}
 		if ident != tok.val {
 			if p.at(tokenLParen) {
-				return &ast.CallExpr{Callee: ident, Args: p.parseArgumentExpressionList()}
+				return &ast.CallExpr{Callee: &ast.Ident{Val: ident}, Args: p.parseArgumentExpressionList()}
 			}
 			return &ast.Ident{Val: ident}
 		}
@@ -1136,12 +1136,12 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 		if isTemplateableIdent(tok.val) && p.at(tokenLAngle) {
 			targs := p.parseTemplateList()
 			if p.at(tokenLParen) {
-				return &ast.CallExpr{Callee: tok.val, TemplateArgs: targs, Args: p.parseArgumentExpressionList()}
+				return &ast.CallExpr{Callee: &ast.Ident{Val: tok.val}, TemplateArgs: targs, Args: p.parseArgumentExpressionList()}
 			}
-			return &ast.CallExpr{Callee: tok.val, TemplateArgs: targs}
+			return &ast.CallExpr{Callee: &ast.Ident{Val: tok.val}, TemplateArgs: targs}
 		}
 		if p.at(tokenLParen) {
-			return &ast.CallExpr{Callee: tok.val, Args: p.parseArgumentExpressionList()}
+			return &ast.CallExpr{Callee: &ast.Ident{Val: tok.val}, Args: p.parseArgumentExpressionList()}
 		}
 		return &ast.Ident{Val: tok.val}
 
