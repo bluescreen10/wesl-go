@@ -450,7 +450,7 @@ func (p *parser) parseFuncDecl(attrs []*ast.Attribute) *ast.FuncDecl {
 		retType = p.parseTypeSpecifier()
 	}
 
-	body := p.parseCompoundStatement(nil)
+	body := p.parseBlockStatement(nil)
 
 	return &ast.FuncDecl{
 		Attrs:       attrs,
@@ -605,7 +605,7 @@ func (p *parser) parseStatementBody(attrs []*ast.Attribute) ast.Stmt {
 		p.next()
 		return &ast.EmptyStmt{}
 	case tokenLBrace:
-		return p.parseCompoundStatement(attrs)
+		return p.parseBlockStatement(attrs)
 	case tokenReturn:
 		s := p.parseReturnStatement(attrs)
 		p.expect(tokenSemicolon)
@@ -703,7 +703,7 @@ func (p *parser) parseContinueStatement(attrs []*ast.Attribute) *ast.ContinueStm
 // parseContinuingStatement parses continuing statement
 func (p *parser) parseContinuingStatement(attrs []*ast.Attribute) *ast.ContinuingStmt {
 	p.expect(tokenContinuing)
-	body := p.parseCompoundStatement(nil)
+	body := p.parseBlockStatement(nil)
 	return &ast.ContinuingStmt{Attrs: attrs, Body: body}
 }
 
@@ -808,7 +808,7 @@ func (p *parser) parseValStatement(attrs []*ast.Attribute) *ast.ValStmt {
 }
 
 // attribute* '{' statement* '}'
-func (p *parser) parseCompoundStatement(attrs []*ast.Attribute) *ast.BlockStmt {
+func (p *parser) parseBlockStatement(attrs []*ast.Attribute) *ast.BlockStmt {
 	p.expect(tokenLBrace)
 	var stmts []ast.Stmt
 	for !p.at(tokenRBrace) {
@@ -860,7 +860,7 @@ func (p *parser) parseCaseClause(attrs []*ast.Attribute) *ast.CaseClause {
 	p.expect(tokenCase)
 	selectors := p.parseCaseSelectors()
 	p.accept(tokenColon)
-	body := p.parseCompoundStatement(nil)
+	body := p.parseBlockStatement(nil)
 	return &ast.CaseClause{Attrs: attrs, Selectors: selectors, Body: body}
 }
 
@@ -870,7 +870,7 @@ func (p *parser) parseCaseClause(attrs []*ast.Attribute) *ast.CaseClause {
 func (p *parser) parseDefaultClause(attrs []*ast.Attribute) *ast.CaseClause {
 	p.expect(tokenDefault)
 	p.accept(tokenColon)
-	body := p.parseCompoundStatement(nil)
+	body := p.parseBlockStatement(nil)
 	return &ast.CaseClause{Attrs: attrs, Body: body}
 }
 
@@ -919,14 +919,14 @@ func (p *parser) parseCaseSelectors() []ast.Expr {
 func (p *parser) parseIfStatement(attrs []*ast.Attribute) *ast.IfStmt {
 	p.expect(tokenIf)
 	cond := p.parseExpression()
-	then := p.parseCompoundStatement(nil)
+	then := p.parseBlockStatement(nil)
 	stmt := &ast.IfStmt{Attrs: attrs, Cond: cond, Then: then}
 
 	if p.accept(tokenElse) {
 		if p.at(tokenIf) {
 			stmt.ElseIf = p.parseIfStatement(nil)
 		} else {
-			stmt.Else = p.parseCompoundStatement(nil)
+			stmt.Else = p.parseBlockStatement(nil)
 		}
 	}
 	return stmt
@@ -988,7 +988,7 @@ func (p *parser) parseForStatement(attrs []*ast.Attribute) *ast.ForStmt {
 	}
 	p.expect(tokenRParen)
 
-	body := p.parseCompoundStatement(nil)
+	body := p.parseBlockStatement(nil)
 	return &ast.ForStmt{Attrs: attrs, Init: init, Cond: cond, Update: update, Body: body}
 }
 
@@ -998,7 +998,7 @@ func (p *parser) parseForStatement(attrs []*ast.Attribute) *ast.ForStmt {
 func (p *parser) parseWhileStatement(attrs []*ast.Attribute) *ast.WhileStmt {
 	p.expect(tokenWhile)
 	cond := p.parseExpression()
-	body := p.parseCompoundStatement(nil)
+	body := p.parseBlockStatement(nil)
 	return &ast.WhileStmt{Attrs: attrs, Cond: cond, Body: body}
 }
 
