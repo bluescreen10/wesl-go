@@ -68,7 +68,9 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 	}()
 
 	r.rootFile = filename
+
 	mod := r.loadModule(filename)
+	r.resolveRef(mod, mod.file)
 
 	// Seed names with root-module symbols so imported symbols that mangle to
 	// the same name get a numeric suffix instead of colliding.
@@ -80,7 +82,7 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 	}
 
 	// resolveRef marks used symbols and records which idents need renaming.
-	r.resolveRef(mod, mod.file)
+
 	for _, filePath := range r.order {
 		m := r.resolved[filePath]
 		for ident := range m.renames {
@@ -222,8 +224,8 @@ func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 
 		// TypeSpecifier: resolve its name via resolveName, walk template args for expr idents.
 		case *ast.TypeSpecifier:
-			r.resolveName(mod, n.Name.Val, scope)
-			if r.needsRename(mod, n.Name.Val, scope) {
+			isExternal := r.resolveName(mod, n.Name.Val, scope)
+			if isExternal {
 				mod.renames[n.Name] = struct{}{}
 			}
 			for _, arg := range n.TemplateArgs {
@@ -232,8 +234,8 @@ func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 			return false
 
 		case *ast.Ident:
-			r.resolveExprName(mod, n.Val, scope)
-			if r.needsRename(mod, n.Val, scope) {
+			isExternal := r.resolveName(mod, n.Val, scope)
+			if isExternal {
 				mod.renames[n] = struct{}{}
 			}
 		}
@@ -253,25 +255,31 @@ func (r *Resolver) lookupImportFile(mod *module, i importEntry) string {
 }
 
 // resolveName marks name as used in mod, loading external modules as needed,
-// and recurses into the declaration's own dependencies. The used map acts as a
-// cycle guard so mutual references terminate.
-func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) {
+// and recurses into the declaration's own dependencies. Handles both plain
+// names and inline qualified references like "package::foo::MyType".
+// The used map acts as a cycle guard so mutual references terminate.
+func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) bool {
+	// Do nothing for empty or locally defined symbols
 	if name == "" || scope.has(name) {
-		return
+		return false
 	}
 
-	// Module symbols take precedence over builtins (e.g. alias f32 = ...).
+	// Look for module symbol table
 	if d, ok := mod.symbols[name]; ok {
 		if !mod.used[name] {
 			r.resolveRef(mod, d)
 		}
-		return
+		//FIXME: get rid of rootFile
+		// return true
+		return mod.filePath != r.rootFile
 	}
 
+	// Do nothing for built-ins
 	if isBuiltinType(name) {
-		return
+		return false
 	}
 
+	// Look for imported symbols
 	if i, ok := mod.imports[name]; ok {
 		m := r.loadModule(r.lookupImportFile(mod, i))
 		if m != nil && !m.used[i.sym] {
@@ -279,25 +287,26 @@ func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) {
 				r.resolveRef(m, d)
 			}
 		}
-	}
-}
 
-// resolveExprName handles both plain names and inline "a::b::sym" references.
-func (r *Resolver) resolveExprName(mod *module, name string, scope *scopeStack) {
-	if !strings.Contains(name, "::") {
-		r.resolveName(mod, name, scope)
-		return
+		return true
 	}
-	filePath, sym := r.resolveQualifiedName(mod, name, mod.filePath)
-	if filePath == "" {
-		return
-	}
-	m := r.loadModule(filePath)
-	if m != nil && !m.used[sym] {
-		if d := m.symbols[sym]; d != nil {
-			r.resolveRef(m, d)
+
+	// Look for fully qualified names
+	if strings.Contains(name, "::") {
+		filePath, sym := r.resolveQualifiedName(mod, name, mod.filePath)
+		if filePath == "" {
+			return false
 		}
+		m := r.loadModule(filePath)
+		if m != nil && !m.used[sym] {
+			if d := m.symbols[sym]; d != nil {
+				r.resolveRef(m, d)
+			}
+		}
+		return true
 	}
+
+	return false
 }
 
 // needsRename reports whether name should be added to the rename table.
