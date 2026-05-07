@@ -120,7 +120,7 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 			if d == nil {
 				continue
 			}
-			cloned := cloneDecl(d)
+			cloned := ast.CloneDecl(d)
 			cloned.SetName(r.nameFor(filePath, name))
 			decls = append(decls, cloned)
 		}
@@ -465,30 +465,6 @@ func (r *Resolver) lookupFile(segs []string) string {
 }
 
 // ── AST helpers ───────────────────────────────────────────────────────────────
-
-func cloneDecl(d ast.Decl) ast.Decl {
-	switch dd := d.(type) {
-	case *ast.FuncDecl:
-		c := *dd
-		return &c
-	case *ast.StructDecl:
-		c := *dd
-		return &c
-	case *ast.GlobalValDecl:
-		c := *dd
-		return &c
-	case *ast.GlobalVarDecl:
-		c := *dd
-		return &c
-	case *ast.TypeAliasDecl:
-		c := *dd
-		return &c
-	case *ast.ConstAssertDecl:
-		c := *dd
-		return &c
-	}
-	return d
-}
 
 func isBuiltinType(typ string) bool {
 	switch typ {

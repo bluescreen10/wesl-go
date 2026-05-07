@@ -1,8 +1,10 @@
 package ast
 
+import "reflect"
+
 func Rewrite(n Node, fn func(Node) Node) Node {
-	if n == nil {
-		return nil
+	if v := reflect.ValueOf(n); v.Kind() == reflect.Pointer && v.IsNil() {
+		n = nil
 	}
 
 	r := fn(n)
@@ -83,18 +85,9 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 	case *IfStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Cond = wrap[Expr](Rewrite(r.Cond, fn))
-
-		if r.Then != nil {
-			r.Then = wrap[*CompoundStmt](Rewrite(r.Then, fn))
-		}
-
-		if r.ElseIf != nil {
-			r.ElseIf = wrap[*IfStmt](Rewrite(r.ElseIf, fn))
-		}
-
-		if r.Else != nil {
-			r.Else = wrap[*CompoundStmt](Rewrite(r.Else, fn))
-		}
+		r.Then = wrap[*CompoundStmt](Rewrite(r.Then, fn))
+		r.ElseIf = wrap[*IfStmt](Rewrite(r.ElseIf, fn))
+		r.Else = wrap[*CompoundStmt](Rewrite(r.Else, fn))
 	case *ForStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Init = wrap[Stmt](Rewrite(r.Init, fn))
