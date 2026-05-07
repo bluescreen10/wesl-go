@@ -96,7 +96,7 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 	r.namespace = make(map[string]bool)
 	r.names = make(map[fileSymbol]string)
 	for _, d := range mod.file.Decls {
-		if n := d.GetName(); n != "" {
+		if n := getDeclName(d); n != "" {
 			r.namespace[n] = true
 		}
 	}
@@ -121,7 +121,7 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 			if d == nil {
 				continue
 			}
-			d.SetName(r.nameFor(filePath, name))
+			setDeclName(d, r.nameFor(filePath, name))
 			decls = append(decls, d)
 		}
 	}
@@ -172,14 +172,13 @@ func (r *Resolver) buildSymbolAndImports(mod *resolvedModule) {
 				}
 			}
 		default:
-			if name := d.GetName(); name != "" {
+			if name := getDeclName(d); name != "" {
 				mod.symbols[name] = d
 			}
-
-			// remove import declarations
 			mod.file.Decls[j] = d
 			j++
 		}
+
 	}
 	mod.file.Decls = mod.file.Decls[:j]
 }
@@ -556,4 +555,36 @@ func (s scopeStack) has(name string) bool {
 		}
 	}
 	return false
+}
+
+func getDeclName(d ast.Decl) string {
+	switch d := d.(type) {
+	case *ast.FuncDecl:
+		return d.Name.Val
+	case *ast.StructDecl:
+		return d.Name.Val
+	case *ast.ValStmt:
+		return d.Name.Val
+	case *ast.VarStmt:
+		return d.Name.Val
+	case *ast.TypeAliasDecl:
+		return d.Name.Val
+	default:
+		return ""
+	}
+}
+
+func setDeclName(d ast.Decl, name string) {
+	switch d := d.(type) {
+	case *ast.FuncDecl:
+		d.Name.Val = name
+	case *ast.StructDecl:
+		d.Name.Val = name
+	case *ast.ValStmt:
+		d.Name.Val = name
+	case *ast.VarStmt:
+		d.Name.Val = name
+	case *ast.TypeAliasDecl:
+		d.Name.Val = name
+	}
 }

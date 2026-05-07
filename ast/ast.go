@@ -20,8 +20,6 @@ type (
 	// Interface
 	Decl interface {
 		Node
-		GetName() string
-		SetName(string)
 		declNode()
 	}
 
@@ -143,30 +141,6 @@ func (*IfAttrDecl) node()          {}
 func (*RequiresDirective) node()   {}
 func (*StructDecl) node()          {}
 func (*TypeAliasDecl) node()       {}
-
-func (_ *DiagnosticDirective) GetName() string  { return "" }
-func (_ *EnableDirective) GetName() string      { return "" }
-func (d *FuncDecl) GetName() string             { return d.Name.Val }
-func (_ *ImportDecl) GetName() string           { return "" }
-func (_ *IfAttrDecl) GetName() string           { return "" }
-func (_ *RequiresDirective) GetName() string    { return "" }
-func (d *StructDecl) GetName() string           { return d.Name.Val }
-func (d *TypeAliasDecl) GetName() string        { return d.Name.Val }
-func (d *VarStmt) GetName() string              { return d.Name.Val }
-func (d *ValStmt) GetName() string              { return d.Name.Val }
-func (_ *ConstAssertStmt) GetName() string      { return "" }
-
-func (_ *DiagnosticDirective) SetName(string)  {}
-func (_ *EnableDirective) SetName(string)      {}
-func (d *FuncDecl) SetName(n string)           { d.Name.Val = n }
-func (_ *ImportDecl) SetName(string)           {}
-func (_ *IfAttrDecl) SetName(string)           {}
-func (_ *RequiresDirective) SetName(string)    {}
-func (d *StructDecl) SetName(n string)         { d.Name.Val = n }
-func (d *TypeAliasDecl) SetName(n string)      { d.Name.Val = n }
-func (d *VarStmt) SetName(n string)            { d.Name.Val = n }
-func (d *ValStmt) SetName(n string)            { d.Name.Val = n }
-func (_ *ConstAssertStmt) SetName(string)      {}
 
 func (*IfAttrStructMember) structMemberNode() {}
 func (*StructMember) structMemberNode()       {}
@@ -337,7 +311,7 @@ type (
 )
 
 func (*AssignmentStmt) stmtNode()  {}
-func (*BreakStmt) stmtNode() {}
+func (*BreakStmt) stmtNode()       {}
 func (*BlockStmt) stmtNode()       {}
 func (*ConstAssertStmt) stmtNode() {}
 func (*ContinueStmt) stmtNode()    {}
@@ -357,7 +331,7 @@ func (*ValStmt) stmtNode()         {}
 func (*WhileStmt) stmtNode()       {}
 
 func (*AssignmentStmt) node()  {}
-func (*BreakStmt) node() {}
+func (*BreakStmt) node()       {}
 func (*BlockStmt) node()       {}
 func (*ConstAssertStmt) node() {}
 func (*ContinueStmt) node()    {}
