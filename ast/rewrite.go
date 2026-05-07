@@ -21,20 +21,10 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 	// Decls
 	case *File:
 		r.Decls = RewriteList(r.Decls, fn)
-	case *GlobalValDecl:
-		r.Attrs = RewriteList(r.Attrs, fn)
-		r.Type = wrap[*TypeSpecifier](Rewrite(r.Type, fn))
-		r.Init = wrap[Expr](Rewrite(r.Init, fn))
-	case *GlobalVarDecl:
-		r.Attrs = RewriteList(r.Attrs, fn)
-		r.Type = wrap[*TypeSpecifier](Rewrite(r.Type, fn))
-		r.Init = wrap[Expr](Rewrite(r.Init, fn))
 	case *RequiresDirective:
 		r.Attrs = RewriteList(r.Attrs, fn)
 	case *EnableDirective:
 		r.Attrs = RewriteList(r.Attrs, fn)
-	case *ConstAssertDecl:
-		r.Assert = wrap[*ConstAssertStmt](Rewrite(r.Assert, fn))
 	case *DiagnosticDirective:
 		r.Attrs = RewriteList(r.Attrs, fn)
 	case *IfAttrDecl:

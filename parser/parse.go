@@ -377,7 +377,7 @@ func (p *parser) parseTypeAliasDecl(attrs []*ast.Attribute) *ast.TypeAliasDecl {
 //	variable_decl ( '=' expression )?
 //
 // parseGlobalVarDecl parses a global variable declaration
-func (p *parser) parseGlobalVarDecl(attrs []*ast.Attribute) *ast.GlobalVarDecl {
+func (p *parser) parseGlobalVarDecl(attrs []*ast.Attribute) *ast.VarStmt {
 	p.expect(tokenVar)
 	var templateArgs []ast.Expr
 	if p.at(tokenLAngle) {
@@ -391,14 +391,14 @@ func (p *parser) parseGlobalVarDecl(attrs []*ast.Attribute) *ast.GlobalVarDecl {
 	}
 	p.expect(tokenSemicolon)
 
-	return &ast.GlobalVarDecl{Attrs: attrs, TemplateArgs: templateArgs, Name: name, Type: typ, Init: init}
+	return &ast.VarStmt{Attrs: attrs, TemplateArgs: templateArgs, Name: name, Type: typ, Init: init}
 }
 
 //	attribute* 'const'    optionally_typed_ident '=' expression
 //	attribute* 'override' optionally_typed_ident ( '=' expression )?
 //
 // parseGlobalValDecl parses a global value declaration
-func (p *parser) parseGlobalValDecl(attrs []*ast.Attribute) *ast.GlobalValDecl {
+func (p *parser) parseGlobalValDecl(attrs []*ast.Attribute) *ast.ValStmt {
 	kw := p.expectOneOf(tokenConst, tokenOverride)
 	name, typ := p.parseOptionallyTypedIdent()
 
@@ -416,14 +416,14 @@ func (p *parser) parseGlobalValDecl(attrs []*ast.Attribute) *ast.GlobalValDecl {
 	}
 
 	p.expect(tokenSemicolon)
-	return &ast.GlobalValDecl{Attrs: attrs, Keyword: kw.val, Name: name, Type: typ, Init: init}
+	return &ast.ValStmt{Attrs: attrs, Keyword: kw.val, Name: name, Type: typ, Init: init}
 }
 
 // parseGlobalConstAssert parse a global const_assert statement
-func (p *parser) parseGlobalConstAssert(attrs []*ast.Attribute) *ast.ConstAssertDecl {
+func (p *parser) parseGlobalConstAssert(attrs []*ast.Attribute) *ast.ConstAssertStmt {
 	stmt := p.parseConstAssertStatement(attrs)
 	p.expect(tokenSemicolon)
-	return &ast.ConstAssertDecl{Assert: stmt}
+	return stmt
 }
 
 // parseFuncDecl parses a function declaration

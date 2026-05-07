@@ -115,8 +115,8 @@ func (p *printer) printAttrs(attrs []*ast.Attribute) {
 
 func (p *printer) printDecl(d ast.Decl) {
 	switch d := d.(type) {
-	case *ast.ConstAssertDecl:
-		p.printStmt(d.Assert)
+	case *ast.ConstAssertStmt, *ast.VarStmt, *ast.ValStmt:
+		p.printStmt(d.(ast.Stmt))
 		p.writeBytes(SEMICOLON)
 	case *ast.DiagnosticDirective:
 		p.printAttrs(d.Attrs)
@@ -139,35 +139,6 @@ func (p *printer) printDecl(d ast.Decl) {
 		p.writeBytes(SEMICOLON)
 	case *ast.FuncDecl:
 		p.printFuncDecl(d)
-	case *ast.GlobalValDecl:
-		p.printAttrs(d.Attrs)
-		p.writeString(d.Keyword)
-		p.writeBytes(WHITESPACE)
-		p.printIdent(d.Name)
-		if d.Type != nil {
-			p.writeBytes(COLON, WHITESPACE)
-			p.printTypeSpecifier(d.Type)
-		}
-		if d.Init != nil {
-			p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
-			p.printExpr(d.Init)
-		}
-		p.writeBytes(SEMICOLON)
-	case *ast.GlobalVarDecl:
-		p.printAttrs(d.Attrs)
-		p.writeString(VAR)
-		p.printTemplateArgs(d.TemplateArgs)
-		p.writeBytes(WHITESPACE)
-		p.printIdent(d.Name)
-		if d.Type != nil {
-			p.writeBytes(COLON, WHITESPACE)
-			p.printTypeSpecifier(d.Type)
-		}
-		if d.Init != nil {
-			p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
-			p.printExpr(d.Init)
-		}
-		p.writeBytes(SEMICOLON)
 	case *ast.IfAttrDecl:
 		p.writeString(IF_ATTR)
 		p.printExpr(d.Cond)
@@ -406,8 +377,10 @@ func (p *printer) printStmt(s ast.Stmt) {
 			p.writeBytes(COLON, WHITESPACE)
 			p.printTypeSpecifier(s.Type)
 		}
-		p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
-		p.printExpr(s.Init)
+		if s.Init != nil {
+			p.writeBytes(WHITESPACE, EQUAL, WHITESPACE)
+			p.printExpr(s.Init)
+		}
 	case *ast.WhileStmt:
 		p.printAttrs(s.Attrs)
 		p.writeString(WHILE)

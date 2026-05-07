@@ -108,9 +108,9 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 	// Emit imported modules in load order (index 0 is root, skip it).
 	for _, filePath := range r.loadOrder[1:] {
 		m := r.resolved[filePath]
-		// ConstAssertDecls have no name and are always emitted.
+		// ConstAssertStmts have no name and are always emitted.
 		for _, d := range m.file.Decls {
-			if _, ok := d.(*ast.ConstAssertDecl); ok {
+			if _, ok := d.(*ast.ConstAssertStmt); ok {
 				decls = append(decls, d)
 			}
 		}
@@ -200,10 +200,10 @@ func (r *Resolver) resolveRefDecl(mod *resolvedModule, d ast.Decl, scope scopeSt
 		r.resolveRefStructDecl(mod, d, scope)
 	case *ast.TypeAliasDecl:
 		r.resolveRefTypeAliasDecl(mod, d, scope)
-	case *ast.GlobalVarDecl:
-		r.resolveRefGlobalVarDecl(mod, d, scope)
-	case *ast.GlobalValDecl:
-		r.resolveRefGlobalValDecl(mod, d, scope)
+	case *ast.VarStmt:
+		r.resolveRefVarDecl(mod, d, scope)
+	case *ast.ValStmt:
+		r.resolveRefValDecl(mod, d, scope)
 	}
 }
 
@@ -362,7 +362,7 @@ func (r *Resolver) resolveRefTypeAliasDecl(mod *resolvedModule, a *ast.TypeAlias
 	r.resolveRefType(mod, a.Type, scope)
 }
 
-func (r *Resolver) resolveRefGlobalVarDecl(mod *resolvedModule, v *ast.GlobalVarDecl, scope scopeStack) {
+func (r *Resolver) resolveRefVarDecl(mod *resolvedModule, v *ast.VarStmt, scope scopeStack) {
 	if v.Type != nil {
 		r.resolveRefType(mod, v.Type, scope)
 	}
@@ -383,7 +383,7 @@ func (r *Resolver) resolveRefGlobalVarDecl(mod *resolvedModule, v *ast.GlobalVar
 	}
 }
 
-func (r *Resolver) resolveRefGlobalValDecl(mod *resolvedModule, v *ast.GlobalValDecl, scope scopeStack) {
+func (r *Resolver) resolveRefValDecl(mod *resolvedModule, v *ast.ValStmt, scope scopeStack) {
 	if v.Type != nil {
 		r.resolveRefType(mod, v.Type, scope)
 	}

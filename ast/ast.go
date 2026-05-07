@@ -25,11 +25,6 @@ type (
 		declNode()
 	}
 
-	// Const Assert
-	ConstAssertDecl struct {
-		Assert *ConstAssertStmt
-	}
-
 	// Diagnostic Directive
 	DiagnosticDirective struct {
 		Attrs   []*Attribute
@@ -73,24 +68,6 @@ type (
 
 	// @if Param
 	IfAttrParam IfAttr[Param]
-
-	// Global Val
-	GlobalValDecl struct {
-		Keyword string
-		Attrs   []*Attribute
-		Name    *Ident
-		Type    *TypeSpecifier
-		Init    Expr
-	}
-
-	// Global Var
-	GlobalVarDecl struct {
-		Attrs        []*Attribute
-		TemplateArgs []Expr
-		Name         *Ident
-		Type         *TypeSpecifier
-		Init         Expr
-	}
 
 	// @if
 	IfAttrDecl IfAttr[Decl]
@@ -146,53 +123,50 @@ type (
 	}
 )
 
-func (*ConstAssertDecl) declNode()     {}
 func (*DiagnosticDirective) declNode() {}
 func (*EnableDirective) declNode()     {}
 func (*FuncDecl) declNode()            {}
-func (*GlobalValDecl) declNode()       {}
-func (*GlobalVarDecl) declNode()       {}
 func (*ImportDecl) declNode()          {}
 func (*IfAttrDecl) declNode()          {}
 func (*RequiresDirective) declNode()   {}
 func (*StructDecl) declNode()          {}
 func (*TypeAliasDecl) declNode()       {}
+func (*VarStmt) declNode()             {}
+func (*ValStmt) declNode()             {}
+func (*ConstAssertStmt) declNode()     {}
 
-func (*ConstAssertDecl) node()     {}
 func (*DiagnosticDirective) node() {}
 func (*EnableDirective) node()     {}
 func (*FuncDecl) node()            {}
-func (*GlobalValDecl) node()       {}
-func (*GlobalVarDecl) node()       {}
 func (*ImportDecl) node()          {}
 func (*IfAttrDecl) node()          {}
 func (*RequiresDirective) node()   {}
 func (*StructDecl) node()          {}
 func (*TypeAliasDecl) node()       {}
 
-func (_ *ConstAssertDecl) GetName() string     { return "" }
-func (_ *DiagnosticDirective) GetName() string { return "" }
-func (_ *EnableDirective) GetName() string     { return "" }
-func (d *FuncDecl) GetName() string            { return d.Name.Val }
-func (d *GlobalValDecl) GetName() string       { return d.Name.Val }
-func (d *GlobalVarDecl) GetName() string       { return d.Name.Val }
-func (_ *ImportDecl) GetName() string          { return "" }
-func (_ *IfAttrDecl) GetName() string          { return "" }
-func (_ *RequiresDirective) GetName() string   { return "" }
-func (d *StructDecl) GetName() string          { return d.Name.Val }
-func (d *TypeAliasDecl) GetName() string       { return d.Name.Val }
+func (_ *DiagnosticDirective) GetName() string  { return "" }
+func (_ *EnableDirective) GetName() string      { return "" }
+func (d *FuncDecl) GetName() string             { return d.Name.Val }
+func (_ *ImportDecl) GetName() string           { return "" }
+func (_ *IfAttrDecl) GetName() string           { return "" }
+func (_ *RequiresDirective) GetName() string    { return "" }
+func (d *StructDecl) GetName() string           { return d.Name.Val }
+func (d *TypeAliasDecl) GetName() string        { return d.Name.Val }
+func (d *VarStmt) GetName() string              { return d.Name.Val }
+func (d *ValStmt) GetName() string              { return d.Name.Val }
+func (_ *ConstAssertStmt) GetName() string      { return "" }
 
-func (_ *ConstAssertDecl) SetName(string)     {}
-func (_ *DiagnosticDirective) SetName(string) {}
-func (_ *EnableDirective) SetName(string)     {}
-func (d *FuncDecl) SetName(n string)          { d.Name.Val = n }
-func (d *GlobalValDecl) SetName(n string)     { d.Name.Val = n }
-func (d *GlobalVarDecl) SetName(n string)     { d.Name.Val = n }
-func (_ *ImportDecl) SetName(string)          {}
-func (_ *IfAttrDecl) SetName(string)          {}
-func (_ *RequiresDirective) SetName(string)   {}
-func (d *StructDecl) SetName(n string)        { d.Name.Val = n }
-func (d *TypeAliasDecl) SetName(n string)     { d.Name.Val = n }
+func (_ *DiagnosticDirective) SetName(string)  {}
+func (_ *EnableDirective) SetName(string)      {}
+func (d *FuncDecl) SetName(n string)           { d.Name.Val = n }
+func (_ *ImportDecl) SetName(string)           {}
+func (_ *IfAttrDecl) SetName(string)           {}
+func (_ *RequiresDirective) SetName(string)    {}
+func (d *StructDecl) SetName(n string)         { d.Name.Val = n }
+func (d *TypeAliasDecl) SetName(n string)      { d.Name.Val = n }
+func (d *VarStmt) SetName(n string)            { d.Name.Val = n }
+func (d *ValStmt) SetName(n string)            { d.Name.Val = n }
+func (_ *ConstAssertStmt) SetName(string)      {}
 
 func (*IfAttrStructMember) structMemberNode() {}
 func (*StructMember) structMemberNode()       {}

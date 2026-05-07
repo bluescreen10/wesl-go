@@ -2,13 +2,6 @@ package ast
 
 import "slices"
 
-func (n *ConstAssertDecl) Clone() *ConstAssertDecl {
-	if n == nil {
-		return nil
-	}
-	return &ConstAssertDecl{Assert: n.Assert.Clone()}
-}
-
 func (n *DiagnosticDirective) Clone() *DiagnosticDirective {
 	if n == nil {
 		return nil
@@ -40,32 +33,6 @@ func (n *FuncDecl) Clone() *FuncDecl {
 		ReturnAttrs: CloneList(n.ReturnAttrs),
 		ReturnType:  n.ReturnType.Clone(),
 		Body:        n.Body.Clone(),
-	}
-}
-
-func (n *GlobalValDecl) Clone() *GlobalValDecl {
-	if n == nil {
-		return nil
-	}
-	return &GlobalValDecl{
-		Attrs:   CloneList(n.Attrs),
-		Name:    n.Name.Clone(),
-		Keyword: n.Keyword,
-		Type:    n.Type.Clone(),
-		Init:    CloneExpr(n.Init),
-	}
-}
-
-func (n *GlobalVarDecl) Clone() *GlobalVarDecl {
-	if n == nil {
-		return nil
-	}
-	return &GlobalVarDecl{
-		Attrs:        CloneList(n.Attrs),
-		Name:         n.Name.Clone(),
-		TemplateArgs: CloneListFunc(n.TemplateArgs, CloneExpr),
-		Type:         n.Type.Clone(),
-		Init:         CloneExpr(n.Init),
 	}
 }
 
@@ -531,17 +498,11 @@ func CloneDecl(item Decl) Decl {
 		return nil
 	}
 	switch item := item.(type) {
-	case *ConstAssertDecl:
-		return item.Clone()
 	case *DiagnosticDirective:
 		return item.Clone()
 	case *EnableDirective:
 		return item.Clone()
 	case *FuncDecl:
-		return item.Clone()
-	case *GlobalValDecl:
-		return item.Clone()
-	case *GlobalVarDecl:
 		return item.Clone()
 	case *ImportDecl:
 		return item.Clone()
@@ -552,6 +513,12 @@ func CloneDecl(item Decl) Decl {
 	case *StructDecl:
 		return item.Clone()
 	case *TypeAliasDecl:
+		return item.Clone()
+	case *ConstAssertStmt:
+		return item.Clone()
+	case *VarStmt:
+		return item.Clone()
+	case *ValStmt:
 		return item.Clone()
 	default:
 		return item

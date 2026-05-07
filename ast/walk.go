@@ -10,22 +10,10 @@ func Walk(n Node, fn func(Node) bool) {
 	// Decls
 	case *File:
 		WalkList(n.Decls, fn)
-	case *GlobalValDecl:
-		WalkList(n.Attrs, fn)
-		Walk(n.Name, fn)
-		Walk(n.Type, fn)
-		Walk(n.Init, fn)
-	case *GlobalVarDecl:
-		WalkList(n.Attrs, fn)
-		Walk(n.Name, fn)
-		Walk(n.Type, fn)
-		Walk(n.Init, fn)
 	case *RequiresDirective:
 		WalkList(n.Attrs, fn)
 	case *EnableDirective:
 		WalkList(n.Attrs, fn)
-	case *ConstAssertDecl:
-		Walk(n.Assert, fn)
 	case *DiagnosticDirective:
 		WalkList(n.Attrs, fn)
 	case *IfAttrDecl:
