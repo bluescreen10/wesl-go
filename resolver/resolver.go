@@ -25,11 +25,11 @@ type importEntry struct {
 type module struct {
 	filePath     string
 	file         *ast.File
-	imports      map[string]importEntry  // alias → import info
-	symbols      map[string]ast.Decl     // local symbol table
-	used         map[string]bool         // symbols marked as used
-	order        []string                // symbols in order first marked used
-	renames      map[*ast.Ident]struct{} // idents to rename in the apply pass
+	imports      map[string]importEntry // alias → import info
+	symbols      map[string]ast.Decl    // local symbol table
+	used         map[string]bool        // symbols marked as used
+	order        []string               // symbols in order first marked used
+	renames      map[*ast.Ident]bool    // idents to rename in the apply pass
 	constAsserts []*ast.ConstAssertStmt
 }
 
@@ -38,8 +38,6 @@ type Resolver struct {
 	defines  map[string]bool
 	resolved map[string]*module
 	order    []string // files in order of first load (pre-order)
-	rootFile string
-	names    map[fileSymbol]string // (file,sym) → collision-free output name
 }
 
 func ResolveFile(filename string, files map[string]*ast.File, defines map[string]bool) (*ast.File, error) {
@@ -69,27 +67,14 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 		}
 	}()
 
-	r.rootFile = filename
-
 	mod := r.loadModule(filename)
 	r.resolveRef(mod, mod.file)
+	r.renameSymbols(mod)
+	return r.emitFile(mod), nil
+}
 
-	// Seed names with root-module symbols so imported symbols that mangle to
-	// the same name get a numeric suffix instead of colliding.
-	r.names = make(map[fileSymbol]string)
-	for n := range mod.symbols {
-		r.names[fileSymbol{filename, n}] = n
-	}
-
-	// rename refs
-	for _, filePath := range r.order {
-		m := r.resolved[filePath]
-		for ident := range m.renames {
-			ident.Val = r.applyRename(m, ident.Val)
-		}
-	}
-
-	decls := mod.file.Decls
+func (r *Resolver) emitFile(root *module) *ast.File {
+	decls := root.file.Decls
 
 	// Emit imported modules in load order (index 0 is root, skip it).
 	for _, filePath := range r.order[1:] {
@@ -103,15 +88,28 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 		// Named symbols in dependency-traversal order.
 		for _, name := range m.order {
 			d := m.symbols[name]
-			if d == nil {
-				continue
-			}
-			//setNodeName(d, r.nameFor(filePath, name))
 			decls = append(decls, d)
 		}
 	}
 
-	return &ast.File{Decls: decls}, nil
+	return &ast.File{Decls: decls}
+}
+
+func (r *Resolver) renameSymbols(root *module) {
+	// Seed names with root-module symbols so imported symbols that mangle to
+	// the same name get a numeric suffix instead of colliding.
+	names := make(map[fileSymbol]string)
+	for n := range root.symbols {
+		names[fileSymbol{root.filePath, n}] = n
+	}
+
+	// rename refs
+	for _, filePath := range r.order {
+		m := r.resolved[filePath]
+		for ident := range m.renames {
+			ident.Val = r.applyRename(m, ident.Val, names, root.filePath)
+		}
+	}
 }
 
 func (r *Resolver) loadModule(filename string) *module {
@@ -131,7 +129,7 @@ func (r *Resolver) loadModule(filename string) *module {
 		used:     make(map[string]bool),
 		symbols:  make(map[string]ast.Decl),
 		imports:  make(map[string]importEntry),
-		renames:  make(map[*ast.Ident]struct{}),
+		renames:  make(map[*ast.Ident]bool),
 	}
 
 	r.buildSymbolAndImports(mod)
@@ -201,7 +199,7 @@ func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 		name := ident.Val
 		mod.used[name] = true
 		mod.order = append(mod.order, name)
-		mod.renames[ident] = struct{}{}
+		mod.renames[ident] = true
 	}
 
 	var walk func(n ast.Node) bool
@@ -231,7 +229,7 @@ func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 		case *ast.TypeSpecifier:
 			// Refs need renaming
 			if r.resolveName(mod, n.Name.Val, scope) {
-				mod.renames[n.Name] = struct{}{}
+				mod.renames[n.Name] = true
 			}
 
 			for _, arg := range n.TemplateArgs {
@@ -242,7 +240,7 @@ func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 		case *ast.Ident:
 			// Refs need renaming
 			if r.resolveName(mod, n.Val, scope) {
-				mod.renames[n] = struct{}{}
+				mod.renames[n] = true
 			}
 		}
 		return true
@@ -324,54 +322,56 @@ func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) bool
 
 // applyRename computes the output name for an ident whose original value is name.
 // Called during the apply pass; scope filtering has already been done at record time.
-func (r *Resolver) applyRename(mod *module, name string) string {
+func (r *Resolver) applyRename(mod *module, name string, names map[fileSymbol]string, rootFile string) string {
 	if strings.Contains(name, "::") {
 		filePath, sym := r.resolveQualifiedName(mod, name, mod.filePath)
 		if filePath == "" {
 			return name
 		}
-		if filePath == r.rootFile {
+		if filePath == rootFile {
 			return sym
 		}
-		return r.nameFor(filePath, sym)
+		return r.nameFor(filePath, sym, names)
 	}
+
 	// Module symbols take precedence over builtins.
 	if _, ok := mod.symbols[name]; ok {
-		if mod.filePath == r.rootFile {
+		if mod.filePath == rootFile {
 			return name
 		}
-		return r.nameFor(mod.filePath, name)
+		return r.nameFor(mod.filePath, name, names)
 	}
+
 	if i, ok := mod.imports[name]; ok {
 		if i.file == "" {
 			return name
 		}
-		if i.file == r.rootFile {
+		if i.file == rootFile {
 			return i.sym
 		}
-		return r.nameFor(i.file, i.sym)
+		return r.nameFor(i.file, i.sym, names)
 	}
 	return name
 }
 
 // nameFor returns the collision-free output name for (file, sym), allocating
 // one on first call and caching it for consistent reuse.
-func (r *Resolver) nameFor(file, sym string) string {
+func (r *Resolver) nameFor(file, sym string, names map[fileSymbol]string) string {
 	key := fileSymbol{file, sym}
-	if n, ok := r.names[key]; ok {
+	if n, ok := names[key]; ok {
 		return n
 	}
 	base := mangleName(file, sym)
 	n := base
-	for i := 0; r.nameTaken(n); i++ {
+	for i := 0; r.nameTaken(n, names); i++ {
 		n = fmt.Sprintf("%s_%d", base, i)
 	}
-	r.names[key] = n
+	names[key] = n
 	return n
 }
 
-func (r *Resolver) nameTaken(name string) bool {
-	for _, v := range r.names {
+func (r *Resolver) nameTaken(name string, names map[fileSymbol]string) bool {
+	for _, v := range names {
 		if v == name {
 			return true
 		}
