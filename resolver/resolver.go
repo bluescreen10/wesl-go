@@ -140,7 +140,7 @@ func (r *Resolver) loadModule(filename string) *resolvedModule {
 	}
 
 	//FIXME: needs to clone first
-	file = r.ResolveConditionals(file)
+	file = r.ResolveConditionals(file.Clone())
 	mod := &resolvedModule{
 		filePath: filename,
 		file:     file,

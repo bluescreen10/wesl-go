@@ -3,10 +3,16 @@ package ast
 import "slices"
 
 func (n *ConstAssertDecl) Clone() *ConstAssertDecl {
+	if n == nil {
+		return nil
+	}
 	return &ConstAssertDecl{Assert: n.Assert.Clone()}
 }
 
 func (n *DiagnosticDirective) Clone() *DiagnosticDirective {
+	if n == nil {
+		return nil
+	}
 	return &DiagnosticDirective{
 		Attrs:   CloneList(n.Attrs),
 		Control: n.Control,
@@ -14,6 +20,9 @@ func (n *DiagnosticDirective) Clone() *DiagnosticDirective {
 }
 
 func (n *EnableDirective) Clone() *EnableDirective {
+	if n == nil {
+		return nil
+	}
 	return &EnableDirective{
 		Attrs:      CloneList(n.Attrs),
 		Extensions: slices.Clone(n.Extensions),
@@ -21,6 +30,9 @@ func (n *EnableDirective) Clone() *EnableDirective {
 }
 
 func (n *FuncDecl) Clone() *FuncDecl {
+	if n == nil {
+		return nil
+	}
 	return &FuncDecl{
 		Attrs:       CloneList(n.Attrs),
 		Name:        n.Name.Clone(),
@@ -32,6 +44,9 @@ func (n *FuncDecl) Clone() *FuncDecl {
 }
 
 func (n *GlobalValDecl) Clone() *GlobalValDecl {
+	if n == nil {
+		return nil
+	}
 	return &GlobalValDecl{
 		Attrs:   CloneList(n.Attrs),
 		Name:    n.Name.Clone(),
@@ -42,6 +57,9 @@ func (n *GlobalValDecl) Clone() *GlobalValDecl {
 }
 
 func (n *GlobalVarDecl) Clone() *GlobalVarDecl {
+	if n == nil {
+		return nil
+	}
 	return &GlobalVarDecl{
 		Attrs:        CloneList(n.Attrs),
 		Name:         n.Name.Clone(),
@@ -52,12 +70,18 @@ func (n *GlobalVarDecl) Clone() *GlobalVarDecl {
 }
 
 func (n *ImportDecl) Clone() *ImportDecl {
+	if n == nil {
+		return nil
+	}
 	return &ImportDecl{
 		Imports: slices.Clone(n.Imports),
 	}
 }
 
 func (n *IfAttrDecl) Clone() *IfAttrDecl {
+	if n == nil {
+		return nil
+	}
 	return &IfAttrDecl{
 		Cond: CloneExpr(n.Cond),
 		Then: CloneDecl(n.Then),
@@ -66,6 +90,9 @@ func (n *IfAttrDecl) Clone() *IfAttrDecl {
 }
 
 func (n *RequiresDirective) Clone() *RequiresDirective {
+	if n == nil {
+		return nil
+	}
 	return &RequiresDirective{
 		Attrs:      CloneList(n.Attrs),
 		Extensions: slices.Clone(n.Extensions),
@@ -73,6 +100,9 @@ func (n *RequiresDirective) Clone() *RequiresDirective {
 }
 
 func (n *StructDecl) Clone() *StructDecl {
+	if n == nil {
+		return nil
+	}
 	return &StructDecl{
 		Attrs:   CloneList(n.Attrs),
 		Name:    n.Name.Clone(),
@@ -81,6 +111,9 @@ func (n *StructDecl) Clone() *StructDecl {
 }
 
 func (n *TypeAliasDecl) Clone() *TypeAliasDecl {
+	if n == nil {
+		return nil
+	}
 	return &TypeAliasDecl{
 		Attrs: CloneList(n.Attrs),
 		Name:  n.Name.Clone(),
@@ -89,6 +122,9 @@ func (n *TypeAliasDecl) Clone() *TypeAliasDecl {
 }
 
 func (n *AssignmentStmt) Clone() *AssignmentStmt {
+	if n == nil {
+		return nil
+	}
 	return &AssignmentStmt{
 		Attrs: CloneList(n.Attrs),
 		LHS:   CloneExpr(n.LHS),
@@ -98,12 +134,18 @@ func (n *AssignmentStmt) Clone() *AssignmentStmt {
 }
 
 func (n *BreakStmt) Clone() *BreakStmt {
+	if n == nil {
+		return nil
+	}
 	return &BreakStmt{
 		Attrs: CloneList(n.Attrs),
 	}
 }
 
 func (n *BreakIfStmt) Clone() *BreakIfStmt {
+	if n == nil {
+		return nil
+	}
 	return &BreakIfStmt{
 		Attrs: CloneList(n.Attrs),
 		Cond:  CloneExpr(n.Cond),
@@ -111,6 +153,9 @@ func (n *BreakIfStmt) Clone() *BreakIfStmt {
 }
 
 func (n *CompoundStmt) Clone() *CompoundStmt {
+	if n == nil {
+		return nil
+	}
 	return &CompoundStmt{
 		Attrs: CloneList(n.Attrs),
 		Stmts: CloneListFunc(n.Stmts, CloneStmt),
@@ -118,6 +163,9 @@ func (n *CompoundStmt) Clone() *CompoundStmt {
 }
 
 func (n *ConstAssertStmt) Clone() *ConstAssertStmt {
+	if n == nil {
+		return nil
+	}
 	return &ConstAssertStmt{
 		Attrs: CloneList(n.Attrs),
 		Expr:  CloneExpr(n.Expr),
@@ -125,12 +173,18 @@ func (n *ConstAssertStmt) Clone() *ConstAssertStmt {
 }
 
 func (n *ContinueStmt) Clone() *ContinueStmt {
+	if n == nil {
+		return nil
+	}
 	return &ContinueStmt{
 		Attrs: CloneList(n.Attrs),
 	}
 }
 
 func (n *ContinuingStmt) Clone() *ContinuingStmt {
+	if n == nil {
+		return nil
+	}
 	return &ContinuingStmt{
 		Attrs: CloneList(n.Attrs),
 		Body:  n.Body.Clone(),
@@ -138,16 +192,25 @@ func (n *ContinuingStmt) Clone() *ContinuingStmt {
 }
 
 func (n *DiscardStmt) Clone() *DiscardStmt {
+	if n == nil {
+		return nil
+	}
 	return &DiscardStmt{
 		Attrs: CloneList(n.Attrs),
 	}
 }
 
 func (n *EmptyStmt) Clone() *EmptyStmt {
+	if n == nil {
+		return nil
+	}
 	return &EmptyStmt{}
 }
 
 func (n *ForStmt) Clone() *ForStmt {
+	if n == nil {
+		return nil
+	}
 	return &ForStmt{
 		Attrs:  CloneList(n.Attrs),
 		Init:   CloneStmt(n.Init),
@@ -158,6 +221,9 @@ func (n *ForStmt) Clone() *ForStmt {
 }
 
 func (n *FuncCallStmt) Clone() *FuncCallStmt {
+	if n == nil {
+		return nil
+	}
 	return &FuncCallStmt{
 		Attrs: CloneList(n.Attrs),
 		Call:  n.Call.Clone(),
@@ -165,6 +231,9 @@ func (n *FuncCallStmt) Clone() *FuncCallStmt {
 }
 
 func (n *IfStmt) Clone() *IfStmt {
+	if n == nil {
+		return nil
+	}
 	return &IfStmt{
 		Attrs:  CloneList(n.Attrs),
 		Cond:   CloneExpr(n.Cond),
@@ -175,6 +244,9 @@ func (n *IfStmt) Clone() *IfStmt {
 }
 
 func (n *IfAttrStmt) Clone() *IfAttrStmt {
+	if n == nil {
+		return nil
+	}
 	return &IfAttrStmt{
 		Cond: CloneExpr(n.Cond),
 		Then: CloneStmt(n.Then),
@@ -183,6 +255,9 @@ func (n *IfAttrStmt) Clone() *IfAttrStmt {
 }
 
 func (n *IncDecStmt) Clone() *IncDecStmt {
+	if n == nil {
+		return nil
+	}
 	return &IncDecStmt{
 		Attrs: CloneList(n.Attrs),
 		LHS:   CloneExpr(n.LHS),
@@ -191,6 +266,9 @@ func (n *IncDecStmt) Clone() *IncDecStmt {
 }
 
 func (n *LoopStmt) Clone() *LoopStmt {
+	if n == nil {
+		return nil
+	}
 	return &LoopStmt{
 		Attrs:     CloneList(n.Attrs),
 		BodyAttrs: CloneList(n.BodyAttrs),
@@ -199,6 +277,9 @@ func (n *LoopStmt) Clone() *LoopStmt {
 }
 
 func (n *ReturnStmt) Clone() *ReturnStmt {
+	if n == nil {
+		return nil
+	}
 	return &ReturnStmt{
 		Attrs: CloneList(n.Attrs),
 		Value: CloneExpr(n.Value),
@@ -206,6 +287,9 @@ func (n *ReturnStmt) Clone() *ReturnStmt {
 }
 
 func (n *SwitchStmt) Clone() *SwitchStmt {
+	if n == nil {
+		return nil
+	}
 	return &SwitchStmt{
 		Attrs:   CloneList(n.Attrs),
 		Expr:    CloneExpr(n.Expr),
@@ -214,6 +298,9 @@ func (n *SwitchStmt) Clone() *SwitchStmt {
 }
 
 func (n *VarStmt) Clone() *VarStmt {
+	if n == nil {
+		return nil
+	}
 	return &VarStmt{
 		Attrs:        CloneList(n.Attrs),
 		TemplateArgs: CloneListFunc(n.TemplateArgs, CloneExpr),
@@ -224,6 +311,9 @@ func (n *VarStmt) Clone() *VarStmt {
 }
 
 func (n *ValStmt) Clone() *ValStmt {
+	if n == nil {
+		return nil
+	}
 	return &ValStmt{
 		Attrs:   CloneList(n.Attrs),
 		Keyword: n.Keyword,
@@ -234,6 +324,9 @@ func (n *ValStmt) Clone() *ValStmt {
 }
 
 func (n *WhileStmt) Clone() *WhileStmt {
+	if n == nil {
+		return nil
+	}
 	return &WhileStmt{
 		Attrs: CloneList(n.Attrs),
 		Cond:  CloneExpr(n.Cond),
@@ -242,12 +335,18 @@ func (n *WhileStmt) Clone() *WhileStmt {
 }
 
 func (n *AddrOfExpr) Clone() *AddrOfExpr {
+	if n == nil {
+		return nil
+	}
 	return &AddrOfExpr{
 		Operand: CloneExpr(n.Operand),
 	}
 }
 
 func (n *BinaryExpr) Clone() *BinaryExpr {
+	if n == nil {
+		return nil
+	}
 	return &BinaryExpr{
 		Op:    n.Op,
 		Left:  CloneExpr(n.Left),
@@ -256,6 +355,9 @@ func (n *BinaryExpr) Clone() *BinaryExpr {
 }
 
 func (n *CallExpr) Clone() *CallExpr {
+	if n == nil {
+		return nil
+	}
 	return &CallExpr{
 		Callee:       n.Callee.Clone(),
 		TemplateArgs: CloneListFunc(n.TemplateArgs, CloneExpr),
@@ -264,18 +366,25 @@ func (n *CallExpr) Clone() *CallExpr {
 }
 
 func (n *DerefExpr) Clone() *DerefExpr {
+	if n == nil {
+		return nil
+	}
 	return &DerefExpr{
 		Operand: CloneExpr(n.Operand),
 	}
 }
 
 func (n *Ident) Clone() *Ident {
-	return &Ident{
-		Val: n.Val,
+	if n == nil {
+		return nil
 	}
+	return &Ident{Val: n.Val}
 }
 
 func (n *IndexExpr) Clone() *IndexExpr {
+	if n == nil {
+		return nil
+	}
 	return &IndexExpr{
 		Base:  CloneExpr(n.Base),
 		Index: CloneExpr(n.Index),
@@ -283,12 +392,16 @@ func (n *IndexExpr) Clone() *IndexExpr {
 }
 
 func (n *LitExpr) Clone() *LitExpr {
-	return &LitExpr{
-		Val: n.Val,
+	if n == nil {
+		return nil
 	}
+	return &LitExpr{Val: n.Val}
 }
 
 func (n *MemberExpr) Clone() *MemberExpr {
+	if n == nil {
+		return nil
+	}
 	return &MemberExpr{
 		Base:   CloneExpr(n.Base),
 		Member: n.Member,
@@ -296,12 +409,18 @@ func (n *MemberExpr) Clone() *MemberExpr {
 }
 
 func (n *ParenExpr) Clone() *ParenExpr {
+	if n == nil {
+		return nil
+	}
 	return &ParenExpr{
 		Inner: CloneExpr(n.Inner),
 	}
 }
 
 func (n *UnaryExpr) Clone() *UnaryExpr {
+	if n == nil {
+		return nil
+	}
 	return &UnaryExpr{
 		Op:      n.Op,
 		Operand: CloneExpr(n.Operand),
@@ -309,6 +428,9 @@ func (n *UnaryExpr) Clone() *UnaryExpr {
 }
 
 func (n *Attribute) Clone() *Attribute {
+	if n == nil {
+		return nil
+	}
 	return &Attribute{
 		Name: n.Name,
 		Args: CloneListFunc(n.Args, CloneExpr),
@@ -316,6 +438,9 @@ func (n *Attribute) Clone() *Attribute {
 }
 
 func (n *TypeSpecifier) Clone() *TypeSpecifier {
+	if n == nil {
+		return nil
+	}
 	return &TypeSpecifier{
 		Name:         n.Name,
 		TemplateArgs: CloneListFunc(n.TemplateArgs, CloneExpr),
@@ -323,12 +448,18 @@ func (n *TypeSpecifier) Clone() *TypeSpecifier {
 }
 
 func (n *File) Clone() *File {
+	if n == nil {
+		return nil
+	}
 	return &File{
 		Decls: CloneListFunc(n.Decls, CloneDecl),
 	}
 }
 
 func (n *IfAttrParam) Clone() *IfAttrParam {
+	if n == nil {
+		return nil
+	}
 	return &IfAttrParam{
 		Cond: CloneExpr(n.Cond),
 		Then: CloneParam(n.Then),
@@ -337,6 +468,9 @@ func (n *IfAttrParam) Clone() *IfAttrParam {
 }
 
 func (n *FuncParam) Clone() *FuncParam {
+	if n == nil {
+		return nil
+	}
 	return &FuncParam{
 		Attrs: CloneList(n.Attrs),
 		Name:  n.Name,
@@ -345,6 +479,9 @@ func (n *FuncParam) Clone() *FuncParam {
 }
 
 func (n *IfAttrStructMember) Clone() *IfAttrStructMember {
+	if n == nil {
+		return nil
+	}
 	return &IfAttrStructMember{
 		Cond: CloneExpr(n.Cond),
 		Then: CloneMember(n.Then),
@@ -353,6 +490,9 @@ func (n *IfAttrStructMember) Clone() *IfAttrStructMember {
 }
 
 func (n *StructMember) Clone() *StructMember {
+	if n == nil {
+		return nil
+	}
 	return &StructMember{
 		Attrs: CloneList(n.Attrs),
 		Name:  n.Name,
@@ -361,6 +501,9 @@ func (n *StructMember) Clone() *StructMember {
 }
 
 func (n *IfAttrClause) Clone() *IfAttrClause {
+	if n == nil {
+		return nil
+	}
 	return &IfAttrClause{
 		Cond: CloneExpr(n.Cond),
 		Then: CloneClause(n.Then),
@@ -369,6 +512,9 @@ func (n *IfAttrClause) Clone() *IfAttrClause {
 }
 
 func (n *CaseClause) Clone() *CaseClause {
+	if n == nil {
+		return nil
+	}
 	return &CaseClause{
 		Attrs:     CloneList(n.Attrs),
 		Selectors: slices.Clone(n.Selectors),
@@ -381,6 +527,9 @@ type Cloner[T any] interface {
 }
 
 func CloneDecl(item Decl) Decl {
+	if item == nil {
+		return nil
+	}
 	switch item := item.(type) {
 	case *ConstAssertDecl:
 		return item.Clone()
@@ -410,6 +559,9 @@ func CloneDecl(item Decl) Decl {
 }
 
 func CloneStmt(item Stmt) Stmt {
+	if item == nil {
+		return nil
+	}
 	switch item := item.(type) {
 	case *AssignmentStmt:
 		return item.Clone()
@@ -457,6 +609,9 @@ func CloneStmt(item Stmt) Stmt {
 }
 
 func CloneExpr(item Expr) Expr {
+	if item == nil {
+		return nil
+	}
 	switch item := item.(type) {
 	case *AddrOfExpr:
 		return item.Clone()
@@ -484,6 +639,9 @@ func CloneExpr(item Expr) Expr {
 }
 
 func CloneParam(item Param) Param {
+	if item == nil {
+		return nil
+	}
 	switch item := item.(type) {
 	case *IfAttrParam:
 		return item.Clone()
@@ -495,6 +653,9 @@ func CloneParam(item Param) Param {
 }
 
 func CloneMember(item Member) Member {
+	if item == nil {
+		return nil
+	}
 	switch item := item.(type) {
 	case *IfAttrStructMember:
 		return item.Clone()
@@ -506,6 +667,9 @@ func CloneMember(item Member) Member {
 }
 
 func CloneClause(item Clause) Clause {
+	if item == nil {
+		return nil
+	}
 	switch item := item.(type) {
 	case *IfAttrClause:
 		return item.Clone()
@@ -518,16 +682,16 @@ func CloneClause(item Clause) Clause {
 
 func CloneList[T Cloner[T]](items []T) []T {
 	out := make([]T, 0, len(items))
-	for i, item := range items {
-		out[i] = item.Clone()
+	for _, item := range items {
+		out = append(out, item.Clone())
 	}
 	return out
 }
 
 func CloneListFunc[T any](items []T, fn func(T) T) []T {
 	out := make([]T, 0, len(items))
-	for i, item := range items {
-		out[i] = fn(item)
+	for _, item := range items {
+		out = append(out, fn(item))
 	}
 	return out
 }
