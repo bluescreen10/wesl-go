@@ -17,18 +17,20 @@ type fileSymbol struct {
 
 // importEntry is one explicit import in a module's import list.
 type importEntry struct {
+	path []string
 	sym  string
-	path []string // raw path segments (may contain "package"/"super") from the source
+	file string
 }
 
 type module struct {
-	filePath string
-	file     *ast.File
-	imports  map[string]importEntry  // alias → import info
-	symbols  map[string]ast.Decl     // local symbol table
-	used     map[string]bool         // symbols marked as used
-	order    []string                // symbols in order first marked used
-	renames  map[*ast.Ident]struct{} // idents to rename in the apply pass
+	filePath     string
+	file         *ast.File
+	imports      map[string]importEntry  // alias → import info
+	symbols      map[string]ast.Decl     // local symbol table
+	used         map[string]bool         // symbols marked as used
+	order        []string                // symbols in order first marked used
+	renames      map[*ast.Ident]struct{} // idents to rename in the apply pass
+	constAsserts []*ast.ConstAssertStmt
 }
 
 type Resolver struct {
@@ -75,14 +77,11 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 	// Seed names with root-module symbols so imported symbols that mangle to
 	// the same name get a numeric suffix instead of colliding.
 	r.names = make(map[fileSymbol]string)
-	for _, d := range mod.file.Decls {
-		if n := getNodeName(d); n != "" {
-			r.names[fileSymbol{filename, n}] = n
-		}
+	for n := range mod.symbols {
+		r.names[fileSymbol{filename, n}] = n
 	}
 
-	// resolveRef marks used symbols and records which idents need renaming.
-
+	// rename refs
 	for _, filePath := range r.order {
 		m := r.resolved[filePath]
 		for ident := range m.renames {
@@ -95,19 +94,19 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 	// Emit imported modules in load order (index 0 is root, skip it).
 	for _, filePath := range r.order[1:] {
 		m := r.resolved[filePath]
+
 		// ConstAssertStmts have no name and are always emitted.
-		for _, d := range m.file.Decls {
-			if _, ok := d.(*ast.ConstAssertStmt); ok {
-				decls = append(decls, d)
-			}
+		for _, d := range m.constAsserts {
+			decls = append(decls, d)
 		}
+
 		// Named symbols in dependency-traversal order.
 		for _, name := range m.order {
 			d := m.symbols[name]
 			if d == nil {
 				continue
 			}
-			setNodeName(d, r.nameFor(filePath, name))
+			//setNodeName(d, r.nameFor(filePath, name))
 			decls = append(decls, d)
 		}
 	}
@@ -178,8 +177,13 @@ func (r *Resolver) buildSymbolAndImports(mod *module) {
 					path: i.Path[:len(i.Path)-1],
 				}
 			}
+		case *ast.ConstAssertStmt:
+			mod.constAsserts = append(mod.constAsserts, d)
+			mod.file.Decls[j] = d
+			j++
 		default:
-			if name := getNodeName(d); name != "" {
+			if i := getNodeName(d); i != nil {
+				name := i.Val
 				mod.symbols[name] = d
 			}
 			mod.file.Decls[j] = d
@@ -193,9 +197,11 @@ func (r *Resolver) buildSymbolAndImports(mod *module) {
 func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 	scope := newScopeStack()
 
-	if name := getNodeName(root); name != "" {
+	if ident := getNodeName(root); ident != nil {
+		name := ident.Val
 		mod.used[name] = true
 		mod.order = append(mod.order, name)
+		mod.renames[ident] = struct{}{}
 	}
 
 	var walk func(n ast.Node) bool
@@ -222,20 +228,20 @@ func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 			scope.pop()
 			return false
 
-		// TypeSpecifier: resolve its name via resolveName, walk template args for expr idents.
 		case *ast.TypeSpecifier:
-			isExternal := r.resolveName(mod, n.Name.Val, scope)
-			if isExternal {
+			// Refs need renaming
+			if r.resolveName(mod, n.Name.Val, scope) {
 				mod.renames[n.Name] = struct{}{}
 			}
+
 			for _, arg := range n.TemplateArgs {
 				ast.Walk(arg, walk)
 			}
 			return false
 
 		case *ast.Ident:
-			isExternal := r.resolveName(mod, n.Val, scope)
-			if isExternal {
+			// Refs need renaming
+			if r.resolveName(mod, n.Val, scope) {
 				mod.renames[n] = struct{}{}
 			}
 		}
@@ -269,9 +275,7 @@ func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) bool
 		if !mod.used[name] {
 			r.resolveRef(mod, d)
 		}
-		//FIXME: get rid of rootFile
-		// return true
-		return mod.filePath != r.rootFile
+		return true
 	}
 
 	// Do nothing for built-ins
@@ -281,10 +285,17 @@ func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) bool
 
 	// Look for imported symbols
 	if i, ok := mod.imports[name]; ok {
-		m := r.loadModule(r.lookupImportFile(mod, i))
+		file := r.lookupImportFile(mod, i)
+		m := r.loadModule(file)
+
+		i.file = file
+		mod.imports[name] = i
+
 		if m != nil && !m.used[i.sym] {
 			if d := m.symbols[i.sym]; d != nil {
 				r.resolveRef(m, d)
+			} else {
+				panic("symbol not found")
 			}
 		}
 
@@ -301,32 +312,14 @@ func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) bool
 		if m != nil && !m.used[sym] {
 			if d := m.symbols[sym]; d != nil {
 				r.resolveRef(m, d)
+			} else {
+				panic("symbol not found")
 			}
 		}
 		return true
 	}
 
 	return false
-}
-
-// needsRename reports whether name should be added to the rename table.
-// Locals (scope.has) and builtins are never renamed.
-func (r *Resolver) needsRename(mod *module, name string, scope *scopeStack) bool {
-	if name == "" || scope.has(name) {
-		return false
-	}
-	if strings.Contains(name, "::") {
-		return true
-	}
-	// Module symbols take precedence over builtins (e.g. alias f32 = ...).
-	if _, ok := mod.symbols[name]; ok {
-		return mod.filePath != r.rootFile
-	}
-	if isBuiltinType(name) {
-		return false
-	}
-	_, ok := mod.imports[name]
-	return ok
 }
 
 // applyRename computes the output name for an ident whose original value is name.
@@ -350,14 +343,13 @@ func (r *Resolver) applyRename(mod *module, name string) string {
 		return r.nameFor(mod.filePath, name)
 	}
 	if i, ok := mod.imports[name]; ok {
-		depFile := r.lookupImportFile(mod, i)
-		if depFile == "" {
+		if i.file == "" {
 			return name
 		}
-		if depFile == r.rootFile {
+		if i.file == r.rootFile {
 			return i.sym
 		}
-		return r.nameFor(depFile, i.sym)
+		return r.nameFor(i.file, i.sym)
 	}
 	return name
 }
@@ -495,20 +487,20 @@ func (s scopeStack) has(name string) bool {
 	return false
 }
 
-func getNodeName(d ast.Node) string {
+func getNodeName(d ast.Node) *ast.Ident {
 	switch d := d.(type) {
 	case *ast.FuncDecl:
-		return d.Name.Val
+		return d.Name
 	case *ast.StructDecl:
-		return d.Name.Val
+		return d.Name
 	case *ast.ValStmt:
-		return d.Name.Val
+		return d.Name
 	case *ast.VarStmt:
-		return d.Name.Val
+		return d.Name
 	case *ast.TypeAliasDecl:
-		return d.Name.Val
+		return d.Name
 	default:
-		return ""
+		return nil
 	}
 }
 
