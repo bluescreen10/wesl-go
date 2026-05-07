@@ -92,7 +92,7 @@ func (p *printer) writeString(s string) {
 	p.writer.Write([]byte(s))
 }
 
-func (p *printer) printAttr(attr ast.Attribute) {
+func (p *printer) printAttr(attr *ast.Attribute) {
 	p.writeString(attr.Name)
 	if len(attr.Args) > 0 {
 		p.writeBytes(LPAREN)
@@ -106,7 +106,7 @@ func (p *printer) printAttr(attr ast.Attribute) {
 	}
 }
 
-func (p *printer) printAttrs(attrs []ast.Attribute) {
+func (p *printer) printAttrs(attrs []*ast.Attribute) {
 	for _, a := range attrs {
 		p.printAttr(a)
 		p.writeBytes(WHITESPACE)

@@ -134,8 +134,8 @@ func (p *parser) errorf(tok token, format string, args ...any) {
 	panic(fmt.Errorf("%s\n%s\n%s", errStr, errLine, errLocation))
 }
 
-func (p *parser) parseAttributes() []ast.Attribute {
-	var attrs []ast.Attribute
+func (p *parser) parseAttributes() []*ast.Attribute {
+	var attrs []*ast.Attribute
 
 	for p.at(tokenAttr) {
 		attr := p.parseAttribute()
@@ -145,7 +145,7 @@ func (p *parser) parseAttributes() []ast.Attribute {
 	return attrs
 }
 
-func (p *parser) parseAttribute() ast.Attribute {
+func (p *parser) parseAttribute() *ast.Attribute {
 	tok := p.expect(tokenAttr)
 
 	var args []ast.Expr
@@ -158,7 +158,7 @@ func (p *parser) parseAttribute() ast.Attribute {
 		Args: args,
 	}
 
-	return attr
+	return &attr
 }
 
 func (p *parser) parseAttributeExpressionList() []ast.Expr {
@@ -252,7 +252,7 @@ func (p *parser) parseTopLevelDecl() ast.Decl {
 //	diagnostic_rule_name  : ident ( '.' ident )?
 //
 // parseDiagnosticDirective parses a WGSL diagnostic directive
-func (p *parser) parseDiagnosticDirective(attrs []ast.Attribute) *ast.DiagnosticDirective {
+func (p *parser) parseDiagnosticDirective(attrs []*ast.Attribute) *ast.DiagnosticDirective {
 	p.expect(tokenDiagnostic)
 	ctrl := p.parseDiagnosticControl()
 	p.expect(tokenSemicolon)
@@ -286,7 +286,7 @@ func (p *parser) parseDiagnosticControl() ast.DiagnosticControl {
 //	enable_extension_list : ident ( ',' ident )* ','?
 //
 // parseEnableDirective parses a WGSL enable directive
-func (p *parser) parseEnableDirective(attrs []ast.Attribute) *ast.EnableDirective {
+func (p *parser) parseEnableDirective(attrs []*ast.Attribute) *ast.EnableDirective {
 	p.expect(tokenEnable)
 	extensions := p.parseIdentList()
 	p.expect(tokenSemicolon)
@@ -297,7 +297,7 @@ func (p *parser) parseEnableDirective(attrs []ast.Attribute) *ast.EnableDirectiv
 //	software_extension_list : ident ( ',' ident )* ','?
 //
 // parseRequiresDirective parses a WGSL requires directive
-func (p *parser) parseRequiresDirective(attrs []ast.Attribute) *ast.RequiresDirective {
+func (p *parser) parseRequiresDirective(attrs []*ast.Attribute) *ast.RequiresDirective {
 	p.expect(tokenRequires)
 	extensions := p.parseIdentList()
 	p.expect(tokenSemicolon)
@@ -321,7 +321,7 @@ func (p *parser) parseIdentList() []string {
 //	struct_member    : attribute* member_ident ':' type_specifier
 //
 // parseStructDecl parses a struct declaration
-func (p *parser) parseStructDecl(attrs []ast.Attribute) *ast.StructDecl {
+func (p *parser) parseStructDecl(attrs []*ast.Attribute) *ast.StructDecl {
 	p.expect(tokenStruct)
 	tok := p.expect(tokenIdent)
 
@@ -365,7 +365,7 @@ func (p *parser) parseIfAttrStructMember() *ast.IfAttrStructMember {
 //	attribute* 'alias' ident '=' type_specifier
 //
 // parseTypeAliasDecl parses an alias type declaration
-func (p *parser) parseTypeAliasDecl(attrs []ast.Attribute) *ast.TypeAliasDecl {
+func (p *parser) parseTypeAliasDecl(attrs []*ast.Attribute) *ast.TypeAliasDecl {
 	p.expect(tokenAlias)
 	tok := p.expect(tokenIdent)
 	p.expect(tokenEqual)
@@ -377,7 +377,7 @@ func (p *parser) parseTypeAliasDecl(attrs []ast.Attribute) *ast.TypeAliasDecl {
 //	variable_decl ( '=' expression )?
 //
 // parseGlobalVarDecl parses a global variable declaration
-func (p *parser) parseGlobalVarDecl(attrs []ast.Attribute) *ast.GlobalVarDecl {
+func (p *parser) parseGlobalVarDecl(attrs []*ast.Attribute) *ast.GlobalVarDecl {
 	p.expect(tokenVar)
 	var templateArgs []ast.Expr
 	if p.at(tokenLAngle) {
@@ -398,7 +398,7 @@ func (p *parser) parseGlobalVarDecl(attrs []ast.Attribute) *ast.GlobalVarDecl {
 //	attribute* 'override' optionally_typed_ident ( '=' expression )?
 //
 // parseGlobalValDecl parses a global value declaration
-func (p *parser) parseGlobalValDecl(attrs []ast.Attribute) *ast.GlobalValDecl {
+func (p *parser) parseGlobalValDecl(attrs []*ast.Attribute) *ast.GlobalValDecl {
 	kw := p.expectOneOf(tokenConst, tokenOverride)
 	name, typ := p.parseOptionallyTypedIdent()
 
@@ -420,14 +420,14 @@ func (p *parser) parseGlobalValDecl(attrs []ast.Attribute) *ast.GlobalValDecl {
 }
 
 // parseGlobalConstAssert parse a global const_assert statement
-func (p *parser) parseGlobalConstAssert(attrs []ast.Attribute) *ast.ConstAssertDecl {
+func (p *parser) parseGlobalConstAssert(attrs []*ast.Attribute) *ast.ConstAssertDecl {
 	stmt := p.parseConstAssertStatement(attrs)
 	p.expect(tokenSemicolon)
 	return &ast.ConstAssertDecl{Assert: stmt}
 }
 
 // parseFuncDecl parses a function declaration
-func (p *parser) parseFuncDecl(attrs []ast.Attribute) *ast.FuncDecl {
+func (p *parser) parseFuncDecl(attrs []*ast.Attribute) *ast.FuncDecl {
 	p.expect(tokenFunc)
 	name := p.expect(tokenIdent)
 
@@ -443,7 +443,7 @@ func (p *parser) parseFuncDecl(attrs []ast.Attribute) *ast.FuncDecl {
 	}
 	p.expect(tokenRParen)
 
-	var retAttrs []ast.Attribute
+	var retAttrs []*ast.Attribute
 	var retType *ast.TypeSpecifier
 	if p.accept(tokenArrow) {
 		retAttrs = p.parseAttributes()
@@ -597,7 +597,7 @@ func (p *parser) parseStatement() ast.Stmt {
 
 // parseStatementBody dispatches on the next keyword after any leading
 // attributes have already been consumed.
-func (p *parser) parseStatementBody(attrs []ast.Attribute) ast.Stmt {
+func (p *parser) parseStatementBody(attrs []*ast.Attribute) ast.Stmt {
 	switch tok := p.peek(); tok.typ {
 	case tokenIfAttr:
 		return p.parseIfAttrStmt()
@@ -663,7 +663,7 @@ func (p *parser) parseStatementBody(attrs []ast.Attribute) ast.Stmt {
 //	attribute* 'return' expression?
 //
 // parseReturnStatement parses a return statement
-func (p *parser) parseReturnStatement(attrs []ast.Attribute) *ast.ReturnStmt {
+func (p *parser) parseReturnStatement(attrs []*ast.Attribute) *ast.ReturnStmt {
 	p.expect(tokenReturn)
 	var value ast.Expr
 	tok := p.peek()
@@ -678,7 +678,7 @@ func (p *parser) parseReturnStatement(attrs []ast.Attribute) *ast.ReturnStmt {
 //
 // parseBreakOrBreakIf disambiguates between break_statement and break_if_statement
 // (both start with 'break').
-func (p *parser) parseBreakOrBreakIf(attrs []ast.Attribute) ast.Stmt {
+func (p *parser) parseBreakOrBreakIf(attrs []*ast.Attribute) ast.Stmt {
 	p.expect(tokenBreak)
 
 	// 'break' followed by 'if' → break_if_statement.
@@ -693,7 +693,7 @@ func (p *parser) parseBreakOrBreakIf(attrs []ast.Attribute) ast.Stmt {
 //	attribute* 'continue'
 //
 // parseContinueStatement parses continue statement
-func (p *parser) parseContinueStatement(attrs []ast.Attribute) *ast.ContinueStmt {
+func (p *parser) parseContinueStatement(attrs []*ast.Attribute) *ast.ContinueStmt {
 	p.expect(tokenContinue)
 	return &ast.ContinueStmt{Attrs: attrs}
 }
@@ -701,7 +701,7 @@ func (p *parser) parseContinueStatement(attrs []ast.Attribute) *ast.ContinueStmt
 //	attribute* 'continuing' continuing_compound_statement
 //
 // parseContinuingStatement parses continuing statement
-func (p *parser) parseContinuingStatement(attrs []ast.Attribute) *ast.ContinuingStmt {
+func (p *parser) parseContinuingStatement(attrs []*ast.Attribute) *ast.ContinuingStmt {
 	p.expect(tokenContinuing)
 	body := p.parseCompoundStatement(nil)
 	return &ast.ContinuingStmt{Attrs: attrs, Body: body}
@@ -710,7 +710,7 @@ func (p *parser) parseContinuingStatement(attrs []ast.Attribute) *ast.Continuing
 //	attribute* 'discard'
 //
 // parseDiscardStatement parses discard statement
-func (p *parser) parseDiscardStatement(attrs []ast.Attribute) *ast.DiscardStmt {
+func (p *parser) parseDiscardStatement(attrs []*ast.Attribute) *ast.DiscardStmt {
 	p.expect(tokenDiscard)
 	return &ast.DiscardStmt{Attrs: attrs}
 }
@@ -718,7 +718,7 @@ func (p *parser) parseDiscardStatement(attrs []ast.Attribute) *ast.DiscardStmt {
 //	attribute* 'const_assert' expression
 //
 // parseConstAssertStatement parses const_assert statement;
-func (p *parser) parseConstAssertStatement(attrs []ast.Attribute) *ast.ConstAssertStmt {
+func (p *parser) parseConstAssertStatement(attrs []*ast.Attribute) *ast.ConstAssertStmt {
 	p.expect(tokenConstAssert)
 	expr := p.parseExpression()
 	return &ast.ConstAssertStmt{Attrs: attrs, Expr: expr}
@@ -727,7 +727,7 @@ func (p *parser) parseConstAssertStatement(attrs []ast.Attribute) *ast.ConstAsse
 //	attribute* '_' '=' expression
 //
 // parseBlankAssignment parses a blank assignement statement
-func (p *parser) parseBlankAssignment(attrs []ast.Attribute) *ast.AssignmentStmt {
+func (p *parser) parseBlankAssignment(attrs []*ast.Attribute) *ast.AssignmentStmt {
 	p.expect(tokenUnderscore)
 	p.expect(tokenEqual)
 	rhs := p.parseExpression()
@@ -742,7 +742,7 @@ func (p *parser) parseBlankAssignment(attrs []ast.Attribute) *ast.AssignmentStmt
 //   - An assignment_statement ('=' or compound-assignment operator follows)
 //   - An increment_statement  ('++' follows)
 //   - A decrement_statement   ('--' follows)
-func (p *parser) parseExpressionStatement(attrs []ast.Attribute) ast.Stmt {
+func (p *parser) parseExpressionStatement(attrs []*ast.Attribute) ast.Stmt {
 	expr := p.parsePostfixExpr()
 
 	switch p.peek().typ {
@@ -781,7 +781,7 @@ func (p *parser) isCompoundAssignOp() (string, bool) {
 //	| variable_decl '=' expression
 //
 // parseVarStatement parses a varable declaration statement
-func (p *parser) parseVarStatement(attrs []ast.Attribute) *ast.VarStmt {
+func (p *parser) parseVarStatement(attrs []*ast.Attribute) *ast.VarStmt {
 	p.expect(tokenVar)
 	var templateArgs []ast.Expr
 	if p.at(tokenLAngle) {
@@ -799,7 +799,7 @@ func (p *parser) parseVarStatement(attrs []ast.Attribute) *ast.VarStmt {
 //	| attribute* 'const' optionally_typed_ident '=' expression
 //
 // parseValStatement parses a value declaration
-func (p *parser) parseValStatement(attrs []ast.Attribute) *ast.ValStmt {
+func (p *parser) parseValStatement(attrs []*ast.Attribute) *ast.ValStmt {
 	tok := p.expectOneOf(tokenConst, tokenLet)
 	name, typ := p.parseOptionallyTypedIdent()
 	p.expect(tokenEqual)
@@ -808,7 +808,7 @@ func (p *parser) parseValStatement(attrs []ast.Attribute) *ast.ValStmt {
 }
 
 // attribute* '{' statement* '}'
-func (p *parser) parseCompoundStatement(attrs []ast.Attribute) *ast.CompoundStmt {
+func (p *parser) parseCompoundStatement(attrs []*ast.Attribute) *ast.CompoundStmt {
 	p.expect(tokenLBrace)
 	var stmts []ast.Stmt
 	for !p.at(tokenRBrace) {
@@ -821,7 +821,7 @@ func (p *parser) parseCompoundStatement(attrs []ast.Attribute) *ast.CompoundStmt
 // attribute* 'switch' expression switch_body_attributes? '{' switch_clause* '}'
 //
 // parseSwitchStatement parses a switch statement
-func (p *parser) parseSwitchStatement(attrs []ast.Attribute) *ast.SwitchStmt {
+func (p *parser) parseSwitchStatement(attrs []*ast.Attribute) *ast.SwitchStmt {
 	p.expect(tokenSwitch)
 	expr := p.parseExpression()
 
@@ -844,7 +844,7 @@ func (p *parser) parseSwitchStatement(attrs []ast.Attribute) *ast.SwitchStmt {
 //	attribute* 'case' case_selectors ':'? compound_statement
 //
 // parseClause
-func (p *parser) parseClause(attrs []ast.Attribute) ast.Clause {
+func (p *parser) parseClause(attrs []*ast.Attribute) ast.Clause {
 	switch tok := p.peek(); tok.typ {
 	case tokenCase:
 		return p.parseCaseClause(attrs)
@@ -856,7 +856,7 @@ func (p *parser) parseClause(attrs []ast.Attribute) ast.Clause {
 	panic("unreachable")
 }
 
-func (p *parser) parseCaseClause(attrs []ast.Attribute) *ast.CaseClause {
+func (p *parser) parseCaseClause(attrs []*ast.Attribute) *ast.CaseClause {
 	p.expect(tokenCase)
 	selectors := p.parseCaseSelectors()
 	p.accept(tokenColon)
@@ -867,7 +867,7 @@ func (p *parser) parseCaseClause(attrs []ast.Attribute) *ast.CaseClause {
 //	attribute* 'default' ':'? compound_statement
 //
 // parseDefaultClause parses a default statement within a switch
-func (p *parser) parseDefaultClause(attrs []ast.Attribute) *ast.CaseClause {
+func (p *parser) parseDefaultClause(attrs []*ast.Attribute) *ast.CaseClause {
 	p.expect(tokenDefault)
 	p.accept(tokenColon)
 	body := p.parseCompoundStatement(nil)
@@ -916,7 +916,7 @@ func (p *parser) parseCaseSelectors() []ast.Expr {
 //	  ( 'else' ( if_statement | compound_statement ) )?
 //
 // parseIfStatement parses an "if" statement
-func (p *parser) parseIfStatement(attrs []ast.Attribute) *ast.IfStmt {
+func (p *parser) parseIfStatement(attrs []*ast.Attribute) *ast.IfStmt {
 	p.expect(tokenIf)
 	cond := p.parseExpression()
 	then := p.parseCompoundStatement(nil)
@@ -935,7 +935,7 @@ func (p *parser) parseIfStatement(attrs []ast.Attribute) *ast.IfStmt {
 //	attribute* 'loop' attribute* '{' statement* ( continuing_statement )? '}'
 //
 // parseLoopStatement parses a "loop" statement
-func (p *parser) parseLoopStatement(attrs []ast.Attribute) *ast.LoopStmt {
+func (p *parser) parseLoopStatement(attrs []*ast.Attribute) *ast.LoopStmt {
 	p.expect(tokenLoop)
 	bodyAttrs := p.parseAttributes()
 	p.expect(tokenLBrace)
@@ -954,7 +954,7 @@ func (p *parser) parseLoopStatement(attrs []ast.Attribute) *ast.LoopStmt {
 //	attribute* 'for' '(' for_init? ';' expression? ';' for_update? ')' compound_statement
 //
 // parseForStatement parses a "for" statement
-func (p *parser) parseForStatement(attrs []ast.Attribute) *ast.ForStmt {
+func (p *parser) parseForStatement(attrs []*ast.Attribute) *ast.ForStmt {
 	p.expect(tokenFor)
 	p.expect(tokenLParen)
 
@@ -995,7 +995,7 @@ func (p *parser) parseForStatement(attrs []ast.Attribute) *ast.ForStmt {
 //	attribute* 'while' expression compound_statement
 //
 // parseWhileStatement parses a "while" statement
-func (p *parser) parseWhileStatement(attrs []ast.Attribute) *ast.WhileStmt {
+func (p *parser) parseWhileStatement(attrs []*ast.Attribute) *ast.WhileStmt {
 	p.expect(tokenWhile)
 	cond := p.parseExpression()
 	body := p.parseCompoundStatement(nil)

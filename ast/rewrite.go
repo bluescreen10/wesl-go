@@ -83,9 +83,18 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 	case *IfStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Cond = wrap[Expr](Rewrite(r.Cond, fn))
-		r.Then = wrap[*CompoundStmt](Rewrite(r.Then, fn))
-		r.ElseIf = wrap[*IfStmt](Rewrite(r.ElseIf, fn))
-		r.Else = wrap[*CompoundStmt](Rewrite(r.Else, fn))
+
+		if r.Then != nil {
+			r.Then = wrap[*CompoundStmt](Rewrite(r.Then, fn))
+		}
+
+		if r.ElseIf != nil {
+			r.ElseIf = wrap[*IfStmt](Rewrite(r.ElseIf, fn))
+		}
+
+		if r.Else != nil {
+			r.Else = wrap[*CompoundStmt](Rewrite(r.Else, fn))
+		}
 	case *ForStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Init = wrap[Stmt](Rewrite(r.Init, fn))
@@ -110,7 +119,7 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 	// Expr
 	case *BinaryExpr:
 		r.Left = wrap[Expr](Rewrite(r.Left, fn))
-		r.Right = wrap[Expr](Rewrite(r.Left, fn))
+		r.Right = wrap[Expr](Rewrite(r.Right, fn))
 	case *UnaryExpr:
 		r.Operand = wrap[Expr](Rewrite(r.Operand, fn))
 	case *CallExpr:
@@ -137,9 +146,9 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 
 func RewriteList[T Node](items []T, fn func(Node) Node) []T {
 	var j int
-	for i, item := range items {
-		if r := fn(item); r != nil {
-			items[i] = r.(T)
+	for _, item := range items {
+		if r := Rewrite(item, fn); r != nil {
+			items[j] = r.(T)
 			j++
 		}
 	}

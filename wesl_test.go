@@ -2,6 +2,7 @@ package wesl_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
@@ -105,6 +106,10 @@ func TestConditionalTranslation(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.Name, func(t *testing.T) {
 			w := wesl.New()
+
+			if test.Name == "@if on assignment statement" {
+				fmt.Println("here")
+			}
 
 			for file, src := range test.Srcs {
 				err := w.Parse(file, src)

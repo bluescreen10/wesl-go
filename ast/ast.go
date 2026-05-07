@@ -32,7 +32,7 @@ type (
 
 	// Diagnostic Directive
 	DiagnosticDirective struct {
-		Attrs   []Attribute
+		Attrs   []*Attribute
 		Control DiagnosticControl
 	}
 
@@ -44,16 +44,16 @@ type (
 
 	// Enable Directive
 	EnableDirective struct {
-		Attrs      []Attribute
+		Attrs      []*Attribute
 		Extensions []string
 	}
 
 	// Function
 	FuncDecl struct {
 		Name        *Ident
-		Attrs       []Attribute
+		Attrs       []*Attribute
 		Params      []Param
-		ReturnAttrs []Attribute
+		ReturnAttrs []*Attribute
 		ReturnType  *TypeSpecifier
 		Body        *CompoundStmt
 	}
@@ -68,7 +68,7 @@ type (
 	FuncParam struct {
 		Name  string
 		Type  *TypeSpecifier
-		Attrs []Attribute
+		Attrs []*Attribute
 	}
 
 	// @if Param
@@ -77,7 +77,7 @@ type (
 	// Global Val
 	GlobalValDecl struct {
 		Keyword string
-		Attrs   []Attribute
+		Attrs   []*Attribute
 		Name    *Ident
 		Type    *TypeSpecifier
 		Init    Expr
@@ -85,7 +85,7 @@ type (
 
 	// Global Var
 	GlobalVarDecl struct {
-		Attrs        []Attribute
+		Attrs        []*Attribute
 		TemplateArgs []Expr
 		Name         *Ident
 		Type         *TypeSpecifier
@@ -111,14 +111,14 @@ type (
 
 	// Reqiures Directive
 	RequiresDirective struct {
-		Attrs      []Attribute
+		Attrs      []*Attribute
 		Extensions []string
 	}
 
 	// Struct
 	StructDecl struct {
 		Name    *Ident
-		Attrs   []Attribute
+		Attrs   []*Attribute
 		Members []Member
 	}
 
@@ -131,7 +131,7 @@ type (
 	// Struct Field
 	StructMember struct {
 		Name  string
-		Attrs []Attribute
+		Attrs []*Attribute
 		Type  *TypeSpecifier
 	}
 
@@ -141,7 +141,7 @@ type (
 	// Type Alias
 	TypeAliasDecl struct {
 		Name  *Ident
-		Attrs []Attribute
+		Attrs []*Attribute
 		Type  *TypeSpecifier
 	}
 )
@@ -217,7 +217,7 @@ type (
 
 	// Assignment
 	AssignmentStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 		LHS   Expr
 		RHS   Expr
 		Op    string
@@ -225,47 +225,47 @@ type (
 
 	// Break
 	BreakStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 	}
 
 	// Break If
 	BreakIfStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 		Cond  Expr
 	}
 
 	// Const Assert
 	ConstAssertStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 		Expr  Expr
 	}
 
 	// Continue
 	ContinueStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 	}
 
 	// Continuing
 	ContinuingStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 		Body  *CompoundStmt
 	}
 
 	// Compound
 	CompoundStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 		Stmts []Stmt
 	}
 
 	// Decrement
 	DecrementStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 		LHS   Expr
 	}
 
 	// Discard
 	DiscardStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 	}
 
 	// Empty
@@ -273,7 +273,7 @@ type (
 
 	// For
 	ForStmt struct {
-		Attrs  []Attribute
+		Attrs  []*Attribute
 		Init   Stmt
 		Cond   Expr
 		Update Stmt
@@ -282,13 +282,13 @@ type (
 
 	// Function Call
 	FuncCallStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 		Call  *CallExpr
 	}
 
 	// If
 	IfStmt struct {
-		Attrs  []Attribute
+		Attrs  []*Attribute
 		Cond   Expr
 		Then   *CompoundStmt
 		ElseIf *IfStmt
@@ -300,27 +300,27 @@ type (
 
 	// Increment
 	IncDecStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 		LHS   Expr
 		Op    string
 	}
 
 	// Loop
 	LoopStmt struct {
-		Attrs     []Attribute
-		BodyAttrs []Attribute
+		Attrs     []*Attribute
+		BodyAttrs []*Attribute
 		Body      *CompoundStmt
 	}
 
 	// Return
 	ReturnStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 		Value Expr
 	}
 
 	// Switch
 	SwitchStmt struct {
-		Attrs   []Attribute
+		Attrs   []*Attribute
 		Expr    Expr
 		Clauses []Clause
 	}
@@ -333,7 +333,7 @@ type (
 
 	// Case
 	CaseClause struct {
-		Attrs     []Attribute
+		Attrs     []*Attribute
 		Selectors []Expr
 		Body      *CompoundStmt
 	}
@@ -343,7 +343,7 @@ type (
 
 	// Local var statement
 	VarStmt struct {
-		Attrs        []Attribute
+		Attrs        []*Attribute
 		TemplateArgs []Expr
 		Name         *Ident
 		Type         *TypeSpecifier
@@ -352,7 +352,7 @@ type (
 
 	// Local let/const statement (Keyword is "let" or "const")
 	ValStmt struct {
-		Attrs   []Attribute
+		Attrs   []*Attribute
 		Keyword string
 		Name    *Ident
 		Type    *TypeSpecifier
@@ -361,7 +361,7 @@ type (
 
 	// While
 	WhileStmt struct {
-		Attrs []Attribute
+		Attrs []*Attribute
 		Cond  Expr
 		Body  *CompoundStmt
 	}
@@ -531,9 +531,9 @@ type File struct {
 	Decls []Decl
 }
 
-func (Attribute) node()     {}
-func (TypeSpecifier) node() {}
-func (File) node()          {}
+func (*Attribute) node()     {}
+func (*TypeSpecifier) node() {}
+func (*File) node()          {}
 
 func (ts TypeSpecifier) AsExpr() Expr {
 	if len(ts.TemplateArgs) == 0 {
