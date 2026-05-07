@@ -684,7 +684,7 @@ func (p *parser) parseBreakOrBreakIf(attrs []*ast.Attribute) ast.Stmt {
 	// 'break' followed by 'if' → break_if_statement.
 	if p.accept(tokenIf) {
 		cond := p.parseExpression()
-		return &ast.BreakIfStmt{Attrs: attrs, Cond: cond}
+		return &ast.BreakStmt{Attrs: attrs, Cond: cond}
 	}
 
 	return &ast.BreakStmt{Attrs: attrs}

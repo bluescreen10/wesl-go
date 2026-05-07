@@ -277,13 +277,12 @@ func (p *printer) printStmt(s ast.Stmt) {
 	case *ast.BreakStmt:
 		p.printAttrs(s.Attrs)
 		p.writeString(BREAK)
-	case *ast.BreakIfStmt:
-		p.printAttrs(s.Attrs)
-		p.writeString(BREAK)
-		p.writeBytes(WHITESPACE)
-		p.writeString(IF)
-		p.writeBytes(WHITESPACE)
-		p.printExpr(s.Cond)
+		if s.Cond != nil {
+			p.writeBytes(WHITESPACE)
+			p.writeString(IF)
+			p.writeBytes(WHITESPACE)
+			p.printExpr(s.Cond)
+		}
 	case *ast.ConstAssertStmt:
 		p.printAttrs(s.Attrs)
 		p.writeString(CONST_ASSERT)

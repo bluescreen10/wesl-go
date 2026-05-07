@@ -197,13 +197,8 @@ type (
 		Op    string
 	}
 
-	// Break
+	// Break (Cond non-nil → break if)
 	BreakStmt struct {
-		Attrs []*Attribute
-	}
-
-	// Break If
-	BreakIfStmt struct {
 		Attrs []*Attribute
 		Cond  Expr
 	}
@@ -342,8 +337,7 @@ type (
 )
 
 func (*AssignmentStmt) stmtNode()  {}
-func (*BreakStmt) stmtNode()       {}
-func (*BreakIfStmt) stmtNode()     {}
+func (*BreakStmt) stmtNode() {}
 func (*BlockStmt) stmtNode()       {}
 func (*ConstAssertStmt) stmtNode() {}
 func (*ContinueStmt) stmtNode()    {}
@@ -363,8 +357,7 @@ func (*ValStmt) stmtNode()         {}
 func (*WhileStmt) stmtNode()       {}
 
 func (*AssignmentStmt) node()  {}
-func (*BreakStmt) node()       {}
-func (*BreakIfStmt) node()     {}
+func (*BreakStmt) node() {}
 func (*BlockStmt) node()       {}
 func (*ConstAssertStmt) node() {}
 func (*ContinueStmt) node()    {}

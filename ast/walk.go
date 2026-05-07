@@ -45,6 +45,9 @@ func Walk(n Node, fn func(Node) bool) {
 	case *ValStmt:
 		WalkList(n.Attrs, fn)
 		Walk(n.Init, fn)
+	case *BreakStmt:
+		WalkList(n.Attrs, fn)
+		Walk(n.Cond, fn)
 	case *FuncCallStmt:
 		WalkList(n.Attrs, fn)
 		Walk(n.Call, fn)

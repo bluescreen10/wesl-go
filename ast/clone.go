@@ -106,15 +106,6 @@ func (n *BreakStmt) Clone() *BreakStmt {
 	}
 	return &BreakStmt{
 		Attrs: CloneList(n.Attrs),
-	}
-}
-
-func (n *BreakIfStmt) Clone() *BreakIfStmt {
-	if n == nil {
-		return nil
-	}
-	return &BreakIfStmt{
-		Attrs: CloneList(n.Attrs),
 		Cond:  CloneExpr(n.Cond),
 	}
 }
@@ -533,8 +524,6 @@ func CloneStmt(item Stmt) Stmt {
 	case *AssignmentStmt:
 		return item.Clone()
 	case *BreakStmt:
-		return item.Clone()
-	case *BreakIfStmt:
 		return item.Clone()
 	case *BlockStmt:
 		return item.Clone()

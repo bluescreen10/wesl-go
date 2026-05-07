@@ -59,6 +59,9 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 		r.Name = wrap[*Ident](Rewrite(r.Name, fn))
 		r.Type = wrap[*TypeSpecifier](Rewrite(r.Type, fn))
 		r.Init = wrap[Expr](Rewrite(r.Init, fn))
+	case *BreakStmt:
+		r.Attrs = RewriteList(r.Attrs, fn)
+		r.Cond = wrap[Expr](Rewrite(r.Cond, fn))
 	case *FuncCallStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Call = wrap[*CallExpr](Rewrite(r.Call, fn))
