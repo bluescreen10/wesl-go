@@ -55,7 +55,7 @@ type (
 		Params      []Param
 		ReturnAttrs []*Attribute
 		ReturnType  *TypeSpecifier
-		Body        *CompoundStmt
+		Body        *BlockStmt
 	}
 
 	// Function Param
@@ -248,11 +248,11 @@ type (
 	// Continuing
 	ContinuingStmt struct {
 		Attrs []*Attribute
-		Body  *CompoundStmt
+		Body  *BlockStmt
 	}
 
 	// Compound
-	CompoundStmt struct {
+	BlockStmt struct {
 		Attrs []*Attribute
 		Stmts []Stmt
 	}
@@ -277,7 +277,7 @@ type (
 		Init   Stmt
 		Cond   Expr
 		Update Stmt
-		Body   *CompoundStmt
+		Body   *BlockStmt
 	}
 
 	// Function Call
@@ -290,9 +290,9 @@ type (
 	IfStmt struct {
 		Attrs  []*Attribute
 		Cond   Expr
-		Then   *CompoundStmt
+		Then   *BlockStmt
 		ElseIf *IfStmt
-		Else   *CompoundStmt
+		Else   *BlockStmt
 	}
 
 	// @If
@@ -309,7 +309,7 @@ type (
 	LoopStmt struct {
 		Attrs     []*Attribute
 		BodyAttrs []*Attribute
-		Body      *CompoundStmt
+		Body      *BlockStmt
 	}
 
 	// Return
@@ -335,7 +335,7 @@ type (
 	CaseClause struct {
 		Attrs     []*Attribute
 		Selectors []Expr
-		Body      *CompoundStmt
+		Body      *BlockStmt
 	}
 
 	// @if
@@ -363,14 +363,14 @@ type (
 	WhileStmt struct {
 		Attrs []*Attribute
 		Cond  Expr
-		Body  *CompoundStmt
+		Body  *BlockStmt
 	}
 )
 
 func (*AssignmentStmt) stmtNode()  {}
 func (*BreakStmt) stmtNode()       {}
 func (*BreakIfStmt) stmtNode()     {}
-func (*CompoundStmt) stmtNode()    {}
+func (*BlockStmt) stmtNode()       {}
 func (*ConstAssertStmt) stmtNode() {}
 func (*ContinueStmt) stmtNode()    {}
 func (*ContinuingStmt) stmtNode()  {}
@@ -391,7 +391,7 @@ func (*WhileStmt) stmtNode()       {}
 func (*AssignmentStmt) node()  {}
 func (*BreakStmt) node()       {}
 func (*BreakIfStmt) node()     {}
-func (*CompoundStmt) node()    {}
+func (*BlockStmt) node()       {}
 func (*ConstAssertStmt) node() {}
 func (*ContinueStmt) node()    {}
 func (*ContinuingStmt) node()  {}

@@ -152,11 +152,11 @@ func (n *BreakIfStmt) Clone() *BreakIfStmt {
 	}
 }
 
-func (n *CompoundStmt) Clone() *CompoundStmt {
+func (n *BlockStmt) Clone() *BlockStmt {
 	if n == nil {
 		return nil
 	}
-	return &CompoundStmt{
+	return &BlockStmt{
 		Attrs: CloneList(n.Attrs),
 		Stmts: CloneListFunc(n.Stmts, CloneStmt),
 	}
@@ -569,7 +569,7 @@ func CloneStmt(item Stmt) Stmt {
 		return item.Clone()
 	case *BreakIfStmt:
 		return item.Clone()
-	case *CompoundStmt:
+	case *BlockStmt:
 		return item.Clone()
 	case *ConstAssertStmt:
 		return item.Clone()

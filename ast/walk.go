@@ -63,7 +63,7 @@ func Walk(n Node, fn func(Node) bool) {
 	case *IncDecStmt:
 		WalkList(n.Attrs, fn)
 		Walk(n.LHS, fn)
-	case *CompoundStmt:
+	case *BlockStmt:
 		WalkList(n.Attrs, fn)
 		WalkList(n.Stmts, fn)
 	case *IfAttrStmt:

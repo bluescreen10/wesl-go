@@ -139,7 +139,6 @@ func (r *Resolver) loadModule(filename string) *resolvedModule {
 		return nil
 	}
 
-	//FIXME: needs to clone first
 	file = r.ResolveConditionals(file.Clone())
 	mod := &resolvedModule{
 		filePath: filename,
@@ -501,7 +500,7 @@ type refWalker struct {
 
 func (w *refWalker) walk(n ast.Node) bool {
 	switch n := n.(type) {
-	case *ast.CompoundStmt:
+	case *ast.BlockStmt:
 		w.scope.push()
 		for _, s := range n.Stmts {
 			ast.Walk(s, w.walk)

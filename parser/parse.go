@@ -808,14 +808,14 @@ func (p *parser) parseValStatement(attrs []*ast.Attribute) *ast.ValStmt {
 }
 
 // attribute* '{' statement* '}'
-func (p *parser) parseCompoundStatement(attrs []*ast.Attribute) *ast.CompoundStmt {
+func (p *parser) parseCompoundStatement(attrs []*ast.Attribute) *ast.BlockStmt {
 	p.expect(tokenLBrace)
 	var stmts []ast.Stmt
 	for !p.at(tokenRBrace) {
 		stmts = append(stmts, p.parseStatement())
 	}
 	p.expect(tokenRBrace)
-	return &ast.CompoundStmt{Attrs: attrs, Stmts: stmts}
+	return &ast.BlockStmt{Attrs: attrs, Stmts: stmts}
 }
 
 // attribute* 'switch' expression switch_body_attributes? '{' switch_clause* '}'
@@ -948,7 +948,7 @@ func (p *parser) parseLoopStatement(attrs []*ast.Attribute) *ast.LoopStmt {
 	}
 	p.expect(tokenRBrace)
 
-	return &ast.LoopStmt{Attrs: attrs, BodyAttrs: bodyAttrs, Body: &ast.CompoundStmt{Stmts: stmts}}
+	return &ast.LoopStmt{Attrs: attrs, BodyAttrs: bodyAttrs, Body: &ast.BlockStmt{Stmts: stmts}}
 }
 
 //	attribute* 'for' '(' for_init? ';' expression? ';' for_update? ')' compound_statement

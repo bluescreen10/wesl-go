@@ -45,7 +45,7 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Params = RewriteList(r.Params, fn)
 		r.ReturnType = wrap[*TypeSpecifier](Rewrite(r.ReturnType, fn))
-		r.Body = wrap[*CompoundStmt](Rewrite(r.Body, fn))
+		r.Body = wrap[*BlockStmt](Rewrite(r.Body, fn))
 	case *StructDecl:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Members = RewriteList(r.Members, fn)
@@ -75,7 +75,7 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 	case *IncDecStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.LHS = wrap[Expr](Rewrite(r.LHS, fn))
-	case *CompoundStmt:
+	case *BlockStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Stmts = RewriteList(r.Stmts, fn)
 	case *IfAttrStmt:
@@ -85,25 +85,25 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 	case *IfStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Cond = wrap[Expr](Rewrite(r.Cond, fn))
-		r.Then = wrap[*CompoundStmt](Rewrite(r.Then, fn))
+		r.Then = wrap[*BlockStmt](Rewrite(r.Then, fn))
 		r.ElseIf = wrap[*IfStmt](Rewrite(r.ElseIf, fn))
-		r.Else = wrap[*CompoundStmt](Rewrite(r.Else, fn))
+		r.Else = wrap[*BlockStmt](Rewrite(r.Else, fn))
 	case *ForStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Init = wrap[Stmt](Rewrite(r.Init, fn))
 		r.Cond = wrap[Expr](Rewrite(r.Cond, fn))
 		r.Update = wrap[Stmt](Rewrite(r.Update, fn))
-		r.Body = wrap[*CompoundStmt](Rewrite(r.Body, fn))
+		r.Body = wrap[*BlockStmt](Rewrite(r.Body, fn))
 	case *WhileStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Cond = wrap[Expr](Rewrite(r.Cond, fn))
-		r.Body = wrap[*CompoundStmt](Rewrite(r.Body, fn))
+		r.Body = wrap[*BlockStmt](Rewrite(r.Body, fn))
 	case *LoopStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
-		r.Body = wrap[*CompoundStmt](Rewrite(r.Body, fn))
+		r.Body = wrap[*BlockStmt](Rewrite(r.Body, fn))
 	case *ContinuingStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
-		r.Body = wrap[*CompoundStmt](Rewrite(r.Body, fn))
+		r.Body = wrap[*BlockStmt](Rewrite(r.Body, fn))
 	case *SwitchStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Expr = wrap[Expr](Rewrite(r.Expr, fn))

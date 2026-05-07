@@ -325,9 +325,9 @@ func (p *printer) printStmt(s ast.Stmt) {
 		p.printAttrs(s.Attrs)
 		p.writeString(CONTINUING)
 		p.writeBytes(WHITESPACE)
-		p.printCompoundStmt(s.Body)
-	case *ast.CompoundStmt:
-		p.printCompoundStmt(s)
+		p.printBlockStmt(s.Body)
+	case *ast.BlockStmt:
+		p.printBlockStmt(s)
 	case *ast.DiscardStmt:
 		p.printAttrs(s.Attrs)
 		p.writeString(DISCARD)
@@ -358,7 +358,7 @@ func (p *printer) printStmt(s ast.Stmt) {
 		p.writeBytes(SEMICOLON, WHITESPACE)
 		p.printStmt(s.Update)
 		p.writeBytes(RPAREN, WHITESPACE)
-		p.printCompoundStmt(s.Body)
+		p.printBlockStmt(s.Body)
 	case *ast.IncDecStmt:
 		p.printAttrs(s.Attrs)
 		p.printExpr(s.LHS)
@@ -367,7 +367,7 @@ func (p *printer) printStmt(s ast.Stmt) {
 		p.printAttrs(s.Attrs)
 		p.writeString(LOOP)
 		p.writeBytes(WHITESPACE)
-		p.printCompoundStmt(s.Body)
+		p.printBlockStmt(s.Body)
 	case *ast.ReturnStmt:
 		p.printAttrs(s.Attrs)
 		p.writeString(RETURN)
@@ -416,7 +416,7 @@ func (p *printer) printStmt(s ast.Stmt) {
 			p.printExpr(s.Cond)
 			p.writeBytes(WHITESPACE)
 		}
-		p.printCompoundStmt(s.Body)
+		p.printBlockStmt(s.Body)
 	}
 }
 
@@ -447,7 +447,7 @@ func (p *printer) printClause(c ast.Clause) {
 				p.printExpr(s)
 			}
 		}
-		p.printCompoundStmt(c.Body)
+		p.printBlockStmt(c.Body)
 	case *ast.IfAttrClause:
 		p.writeString(IF_ATTR)
 		p.printExpr(c.Cond)
@@ -475,7 +475,7 @@ func (p *printer) printIfStmt(s *ast.IfStmt) {
 	p.writeBytes(WHITESPACE)
 	p.printExpr(s.Cond)
 	p.writeBytes(WHITESPACE)
-	p.printCompoundStmt(s.Then)
+	p.printBlockStmt(s.Then)
 	if s.ElseIf != nil {
 		p.writeString(ELSE)
 		p.writeBytes(WHITESPACE)
@@ -484,7 +484,7 @@ func (p *printer) printIfStmt(s *ast.IfStmt) {
 	if s.Else != nil {
 		p.writeString(ELSE)
 		p.writeBytes(WHITESPACE)
-		p.printCompoundStmt(s.Else)
+		p.printBlockStmt(s.Else)
 	}
 }
 
@@ -520,34 +520,34 @@ func (p *printer) printFuncDecl(f *ast.FuncDecl) {
 		p.printTypeSpecifier(f.ReturnType)
 		p.writeBytes(WHITESPACE)
 	}
-	p.printCompoundStmt(f.Body)
+	p.printBlockStmt(f.Body)
 }
 
-func (p *printer) printCompoundStmt(s *ast.CompoundStmt) {
+func (p *printer) printBlockStmt(s *ast.BlockStmt) {
 	p.printAttrs(s.Attrs)
 	p.writeBytes(LBRACE, WHITESPACE)
 
-	var isCompoundStmt bool
+	var isBlockStmt bool
 	for i, s := range s.Stmts {
 		if i > 0 {
-			if !isCompoundStmt {
+			if !isBlockStmt {
 				p.writeBytes(SEMICOLON)
 			}
 			p.writeBytes(WHITESPACE)
 		}
 
 		switch s.(type) {
-		case *ast.CompoundStmt, *ast.IfStmt, *ast.WhileStmt, *ast.ForStmt, *ast.LoopStmt, *ast.SwitchStmt, *ast.ContinuingStmt:
-			isCompoundStmt = true
+		case *ast.BlockStmt, *ast.IfStmt, *ast.WhileStmt, *ast.ForStmt, *ast.LoopStmt, *ast.SwitchStmt, *ast.ContinuingStmt:
+			isBlockStmt = true
 		default:
-			isCompoundStmt = false
+			isBlockStmt = false
 		}
 		p.printStmt(s)
 	}
 
 	//FIXME: Hack
 	if len(s.Stmts) > 0 {
-		if !isCompoundStmt {
+		if !isBlockStmt {
 			p.writeBytes(SEMICOLON)
 		}
 		p.writeBytes(WHITESPACE)
