@@ -117,6 +117,9 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 		r.Index = wrap[Expr](Rewrite(r.Base, fn))
 	case *MemberExpr:
 		r.Base = wrap[Expr](Rewrite(r.Base, fn))
+	case *TypeSpecifier:
+		r.Name = wrap[*Ident](Rewrite(r.Name, fn))
+		r.TemplateArgs = RewriteList(r.TemplateArgs, fn)
 	case *AddrOfExpr:
 		r.Operand = wrap[Expr](Rewrite(r.Operand, fn))
 	case *DerefExpr:

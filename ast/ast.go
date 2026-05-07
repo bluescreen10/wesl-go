@@ -488,7 +488,7 @@ type (
 	// Type
 	TypeSpecifier struct {
 		Node
-		Name         string
+		Name         *Ident
 		TemplateArgs []Expr
 	}
 )
@@ -504,7 +504,7 @@ func (*File) node()          {}
 
 func (ts TypeSpecifier) AsExpr() Expr {
 	if len(ts.TemplateArgs) == 0 {
-		return &Ident{Val: ts.Name}
+		return ts.Name
 	}
-	return &CallExpr{Callee: &Ident{Val: ts.Name}, TemplateArgs: ts.TemplateArgs}
+	return &CallExpr{Callee: ts.Name, TemplateArgs: ts.TemplateArgs}
 }

@@ -559,7 +559,7 @@ func (p *printer) printParam(param ast.Param) {
 }
 
 func (p *printer) printTypeSpecifier(t *ast.TypeSpecifier) {
-	p.writeString(t.Name)
+	p.printIdent(t.Name)
 	p.printTemplateArgs(t.TemplateArgs)
 }
 

@@ -2,7 +2,7 @@ package resolver
 
 import "github.com/bluescreen10/wesl-go/ast"
 
-func (r *Resolver) ResolveConditionals(f *ast.File) *ast.File {
+func (r *Resolver) resolveConditionals(f *ast.File) *ast.File {
 	out := ast.Rewrite(f, func(n ast.Node) ast.Node {
 		switch n := n.(type) {
 		case *ast.IfAttrDecl:

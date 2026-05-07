@@ -1216,7 +1216,7 @@ func (p *parser) parseTypeSpecifier() *ast.TypeSpecifier {
 		args = p.parseTemplateList()
 	}
 
-	return &ast.TypeSpecifier{Name: tok.val, TemplateArgs: args}
+	return &ast.TypeSpecifier{Name: &ast.Ident{Val: tok.val}, TemplateArgs: args}
 }
 
 func (p *parser) parseOptionallyTypedIdent() (*ast.Ident, *ast.TypeSpecifier) {

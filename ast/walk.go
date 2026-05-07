@@ -100,6 +100,11 @@ func Walk(n Node, fn func(Node) bool) {
 		Walk(n.Expr, fn)
 		WalkList(n.Clauses, fn)
 
+	// TypeSpecifier
+	case *TypeSpecifier:
+		Walk(n.Name, fn)
+		WalkList(n.TemplateArgs, fn)
+
 	// Expr
 	case *BinaryExpr:
 		Walk(n.Left, fn)

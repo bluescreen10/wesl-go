@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -33,7 +34,7 @@ type Resolver struct {
 	files     map[string]*ast.File
 	defines   map[string]bool
 	resolved  map[string]*resolvedModule
-	loadOrder []string // files in order of first load (pre-order)
+	order     []string // files in order of first load (pre-order)
 	rootFile  string
 	namespace map[string]bool       // all output names claimed so far
 	names     map[fileSymbol]string // (file,sym) → assigned output name
@@ -74,18 +75,18 @@ func (r *Resolver) nameFor(file, sym string) string {
 }
 
 func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
-	// defer func() {
-	// 	if e := recover(); e != nil {
-	// 		switch e := e.(type) {
-	// 		case error:
-	// 			err = e
-	// 		case string:
-	// 			err = errors.New(e)
-	// 		default:
-	// 			panic(e)
-	// 		}
-	// 	}
-	// }()
+	defer func() {
+		if e := recover(); e != nil {
+			switch e := e.(type) {
+			case error:
+				err = e
+			case string:
+				err = errors.New(e)
+			default:
+				panic(e)
+			}
+		}
+	}()
 
 	r.rootFile = filename
 	mod := r.loadModule(filename)
@@ -106,7 +107,7 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 	decls := mod.file.Decls
 
 	// Emit imported modules in load order (index 0 is root, skip it).
-	for _, filePath := range r.loadOrder[1:] {
+	for _, filePath := range r.order[1:] {
 		m := r.resolved[filePath]
 		// ConstAssertStmts have no name and are always emitted.
 		for _, d := range m.file.Decls {
@@ -120,9 +121,8 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 			if d == nil {
 				continue
 			}
-			cloned := ast.CloneDecl(d)
-			cloned.SetName(r.nameFor(filePath, name))
-			decls = append(decls, cloned)
+			d.SetName(r.nameFor(filePath, name))
+			decls = append(decls, d)
 		}
 	}
 
@@ -139,7 +139,7 @@ func (r *Resolver) loadModule(filename string) *resolvedModule {
 		return nil
 	}
 
-	file = r.ResolveConditionals(file.Clone())
+	file = r.resolveConditionals(file.Clone())
 	mod := &resolvedModule{
 		filePath: filename,
 		file:     file,
@@ -150,7 +150,7 @@ func (r *Resolver) loadModule(filename string) *resolvedModule {
 
 	r.buildSymbolAndImports(mod)
 	r.resolved[filename] = mod
-	r.loadOrder = append(r.loadOrder, filename)
+	r.order = append(r.order, filename)
 	return mod
 }
 
@@ -235,8 +235,8 @@ func (r *Resolver) resolveRefType(mod *resolvedModule, typ *ast.TypeSpecifier, s
 			return true
 		})
 	}
-	r.resolveRefName(mod, typ.Name, scope)
-	typ.Name = r.getRenameName(mod, typ.Name, scope)
+	r.resolveRefName(mod, typ.Name.Val, scope)
+	typ.Name.Val = r.getRenameName(mod, typ.Name.Val, scope)
 }
 
 // resolveRefName marks name as used in mod, loading external modules as needed,

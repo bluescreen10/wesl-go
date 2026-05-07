@@ -400,7 +400,7 @@ func (n *TypeSpecifier) Clone() *TypeSpecifier {
 		return nil
 	}
 	return &TypeSpecifier{
-		Name:         n.Name,
+		Name:         n.Name.Clone(),
 		TemplateArgs: CloneListFunc(n.TemplateArgs, CloneExpr),
 	}
 }
