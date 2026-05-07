@@ -32,13 +32,12 @@ type module struct {
 }
 
 type Resolver struct {
-	files     map[string]*ast.File
-	defines   map[string]bool
-	resolved  map[string]*module
-	order     []string // files in order of first load (pre-order)
-	rootFile  string
-	namespace map[string]bool       // all output names claimed so far
-	names     map[fileSymbol]string // (file,sym) → assigned output name
+	files    map[string]*ast.File
+	defines  map[string]bool
+	resolved map[string]*module
+	order    []string // files in order of first load (pre-order)
+	rootFile string
+	names    map[fileSymbol]string // (file,sym) → collision-free output name
 }
 
 func ResolveFile(filename string, files map[string]*ast.File, defines map[string]bool) (*ast.File, error) {
@@ -71,18 +70,17 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 	r.rootFile = filename
 	mod := r.loadModule(filename)
 
-	// Seed the namespace with root-module symbol names so imported symbols
-	// that mangle to the same name get a numeric suffix instead of colliding.
-	r.namespace = make(map[string]bool)
+	// Seed names with root-module symbols so imported symbols that mangle to
+	// the same name get a numeric suffix instead of colliding.
 	r.names = make(map[fileSymbol]string)
 	for _, d := range mod.file.Decls {
-		if n := getDeclName(d); n != "" {
-			r.namespace[n] = true
+		if n := getNodeName(d); n != "" {
+			r.names[fileSymbol{filename, n}] = n
 		}
 	}
 
-	// resolveRefs marks used symbols and records which idents need renaming.
-	r.resolveRefs(mod)
+	// resolveRef marks used symbols and records which idents need renaming.
+	r.resolveRef(mod, mod.file)
 	for _, filePath := range r.order {
 		m := r.resolved[filePath]
 		for ident := range m.renames {
@@ -107,7 +105,7 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 			if d == nil {
 				continue
 			}
-			setDeclName(d, r.nameFor(filePath, name))
+			setNodeName(d, r.nameFor(filePath, name))
 			decls = append(decls, d)
 		}
 	}
@@ -145,40 +143,19 @@ func (r *Resolver) resolveConditionals(f *ast.File) *ast.File {
 	out := ast.Rewrite(f, func(n ast.Node) ast.Node {
 		switch n := n.(type) {
 		case *ast.IfAttrDecl:
-			if evalCondition(n.Cond, r.defines) {
-				return n.Then
-			} else {
-				return n.Else
-			}
+			return pickBranch(n.Cond, n.Then, n.Else, r.defines)
 		case *ast.IfAttrStmt:
-			if evalCondition(n.Cond, r.defines) {
-				return n.Then
-			} else {
-				return n.Else
-			}
+			return pickBranch(n.Cond, n.Then, n.Else, r.defines)
 		case *ast.IfAttrParam:
-			if evalCondition(n.Cond, r.defines) {
-				return n.Then
-			} else {
-				return n.Else
-			}
+			return pickBranch(n.Cond, n.Then, n.Else, r.defines)
 		case *ast.IfAttrClause:
-			if evalCondition(n.Cond, r.defines) {
-				return n.Then
-			} else {
-				return n.Else
-			}
+			return pickBranch(n.Cond, n.Then, n.Else, r.defines)
 		case *ast.IfAttrStructMember:
-			if evalCondition(n.Cond, r.defines) {
-				return n.Then
-			} else {
-				return n.Else
-			}
+			return pickBranch(n.Cond, n.Then, n.Else, r.defines)
 		default:
 			return n
 		}
 	})
-
 	return out.(*ast.File)
 }
 
@@ -200,7 +177,7 @@ func (r *Resolver) buildSymbolAndImports(mod *module) {
 				}
 			}
 		default:
-			if name := getDeclName(d); name != "" {
+			if name := getNodeName(d); name != "" {
 				mod.symbols[name] = d
 			}
 			mod.file.Decls[j] = d
@@ -211,62 +188,68 @@ func (r *Resolver) buildSymbolAndImports(mod *module) {
 	mod.file.Decls = mod.file.Decls[:j]
 }
 
-func (r *Resolver) resolveRefs(mod *module) {
+func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 	scope := newScopeStack()
 
-	for _, d := range mod.file.Decls {
-		r.resolveDecl(mod, d, scope)
+	if name := getNodeName(root); name != "" {
+		mod.used[name] = true
+		mod.order = append(mod.order, name)
 	}
-}
 
-func (r *Resolver) resolveDecl(mod *module, d ast.Decl, scope *scopeStack) {
-	switch d := d.(type) {
-	case *ast.FuncDecl:
-		r.resolveFuncDecl(mod, d, scope)
-	case *ast.StructDecl:
-		r.resolveStructDecl(mod, d, scope)
-	case *ast.TypeAliasDecl:
-		r.resolveTypeAliasDecl(mod, d, scope)
-	case *ast.VarStmt:
-		r.resolveVarDecl(mod, d, scope)
-	case *ast.ValStmt:
-		r.resolveValDecl(mod, d, scope)
-	}
-}
+	var walk func(n ast.Node) bool
 
-func (r *Resolver) resolveFuncDecl(mod *module, f *ast.FuncDecl, scope *scopeStack) {
-	for _, p := range f.Params {
-		if fp, ok := p.(*ast.FuncParam); ok {
-			r.resolveType(mod, fp.Type, scope)
-		}
-	}
-	if f.ReturnType != nil {
-		r.resolveType(mod, f.ReturnType, scope)
-	}
-	if f.Body != nil {
-		w := &refWalker{r: r, mod: mod, scope: scope}
-		ast.Walk(f.Body, w.walk)
-	}
-}
+	walk = func(n ast.Node) bool {
+		switch n := n.(type) {
 
-// resolveType resolves a TypeSpecifier and marks any needed renames.
-func (r *Resolver) resolveType(mod *module, typ *ast.TypeSpecifier, scope *scopeStack) {
-	for _, arg := range typ.TemplateArgs {
-		ast.Walk(arg, func(n ast.Node) bool {
-			switch n := n.(type) {
-			case *ast.Ident:
-				r.resolveExprName(mod, n.Val, scope)
-				if r.needsRename(mod, n.Val, scope) {
-					mod.renames[n] = struct{}{}
-				}
+		case *ast.VarStmt:
+			scope.add(n.Name.Val)
+			ast.Walk(n.Type, walk)
+			ast.WalkList(n.TemplateArgs, walk)
+			ast.Walk(n.Init, walk)
+			return false
+
+		case *ast.ValStmt:
+			scope.add(n.Name.Val)
+			ast.Walk(n.Type, walk)
+			ast.Walk(n.Init, walk)
+			return false
+
+		case *ast.BlockStmt:
+			scope.push()
+			ast.WalkList(n.Stmts, walk)
+			scope.pop()
+			return false
+
+		// TypeSpecifier: resolve its name via resolveName, walk template args for expr idents.
+		case *ast.TypeSpecifier:
+			r.resolveName(mod, n.Name.Val, scope)
+			if r.needsRename(mod, n.Name.Val, scope) {
+				mod.renames[n.Name] = struct{}{}
 			}
-			return true
-		})
+			for _, arg := range n.TemplateArgs {
+				ast.Walk(arg, walk)
+			}
+			return false
+
+		case *ast.Ident:
+			r.resolveExprName(mod, n.Val, scope)
+			if r.needsRename(mod, n.Val, scope) {
+				mod.renames[n] = struct{}{}
+			}
+		}
+		return true
 	}
-	r.resolveName(mod, typ.Name.Val, scope)
-	if r.needsRename(mod, typ.Name.Val, scope) {
-		mod.renames[typ.Name] = struct{}{}
+
+	ast.Walk(root, walk)
+}
+
+// lookupImportFile resolves the file path for an importEntry relative to mod.
+func (r *Resolver) lookupImportFile(mod *module, i importEntry) string {
+	if file := r.lookupPath(i.path, mod.filePath); file != "" {
+		return file
 	}
+	// Fallback: sym may be the last path segment of a module file path.
+	return r.lookupPath(append(i.path, i.sym), mod.filePath)
 }
 
 // resolveName marks name as used in mod, loading external modules as needed,
@@ -279,12 +262,9 @@ func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) {
 
 	// Module symbols take precedence over builtins (e.g. alias f32 = ...).
 	if d, ok := mod.symbols[name]; ok {
-		if mod.used[name] {
-			return
+		if !mod.used[name] {
+			r.resolveRef(mod, d)
 		}
-		mod.used[name] = true
-		mod.order = append(mod.order, name)
-		r.resolveDecl(mod, d, scope)
 		return
 	}
 
@@ -293,26 +273,16 @@ func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) {
 	}
 
 	if i, ok := mod.imports[name]; ok {
-		segs := r.resolvePathSegs(i.path, mod.filePath)
-		file := r.lookupFile(segs)
-		if file == "" {
-			// Fallback: sym may be the last path segment of a module file path.
-			file = r.lookupFile(append(segs, i.sym))
-		}
-		m := r.loadModule(file)
-		if m == nil || m.used[i.sym] {
-			return
-		}
-		m.used[i.sym] = true
-		m.order = append(m.order, i.sym)
-		if d := m.symbols[i.sym]; d != nil {
-			r.resolveDecl(m, d, newScopeStack())
+		m := r.loadModule(r.lookupImportFile(mod, i))
+		if m != nil && !m.used[i.sym] {
+			if d := m.symbols[i.sym]; d != nil {
+				r.resolveRef(m, d)
+			}
 		}
 	}
 }
 
-// resolveExprName handles both plain names and inline "a::b::sym" references
-// for the mark-used pass only (no renaming here).
+// resolveExprName handles both plain names and inline "a::b::sym" references.
 func (r *Resolver) resolveExprName(mod *module, name string, scope *scopeStack) {
 	if !strings.Contains(name, "::") {
 		r.resolveName(mod, name, scope)
@@ -323,13 +293,10 @@ func (r *Resolver) resolveExprName(mod *module, name string, scope *scopeStack) 
 		return
 	}
 	m := r.loadModule(filePath)
-	if m == nil || m.used[sym] {
-		return
-	}
-	m.used[sym] = true
-	m.order = append(m.order, sym)
-	if d := m.symbols[sym]; d != nil {
-		r.resolveDecl(m, d, newScopeStack())
+	if m != nil && !m.used[sym] {
+		if d := m.symbols[sym]; d != nil {
+			r.resolveRef(m, d)
+		}
 	}
 }
 
@@ -374,11 +341,7 @@ func (r *Resolver) applyRename(mod *module, name string) string {
 		return r.nameFor(mod.filePath, name)
 	}
 	if i, ok := mod.imports[name]; ok {
-		segs := r.resolvePathSegs(i.path, mod.filePath)
-		depFile := r.lookupFile(segs)
-		if depFile == "" {
-			depFile = r.lookupFile(append(segs, i.sym))
-		}
+		depFile := r.lookupImportFile(mod, i)
 		if depFile == "" {
 			return name
 		}
@@ -399,77 +362,54 @@ func (r *Resolver) nameFor(file, sym string) string {
 	}
 	base := mangleName(file, sym)
 	n := base
-	for i := 0; r.namespace[n]; i++ {
+	for i := 0; r.nameTaken(n); i++ {
 		n = fmt.Sprintf("%s_%d", base, i)
 	}
-	r.namespace[n] = true
 	r.names[key] = n
 	return n
 }
 
-func (r *Resolver) resolveStructDecl(mod *module, s *ast.StructDecl, scope *scopeStack) {
-	for _, m := range s.Members {
-		if sf, ok := m.(*ast.StructMember); ok {
-			r.resolveType(mod, sf.Type, scope)
+func (r *Resolver) nameTaken(name string) bool {
+	for _, v := range r.names {
+		if v == name {
+			return true
 		}
 	}
+	return false
 }
 
-func (r *Resolver) resolveTypeAliasDecl(mod *module, a *ast.TypeAliasDecl, scope *scopeStack) {
-	r.resolveType(mod, a.Type, scope)
+// resolveQualifiedName resolves an inline qualified name like "foo::bar" or
+// "package::file::sym" to (filePath, sym) using the module map or path resolution.
+func (r *Resolver) resolveQualifiedName(mod *module, name string, sourceFile string) (string, string) {
+	parts := strings.Split(name, "::")
+	sym := parts[len(parts)-1]
+	root := parts[0]
+
+	if entry, ok := mod.imports[root]; ok {
+		p := append(entry.path, parts[1:len(parts)-1]...)
+		if file := r.lookupPath(p, sourceFile); file != "" {
+			return file, sym
+		}
+		// Fallback: the import alias may point to a module file whose name
+		// is entry.sym (e.g. import package::dir::modname → file "dir/modname").
+		return r.lookupPath(append(p, entry.sym), sourceFile), sym
+	}
+	return r.lookupPath(parts[:len(parts)-1], sourceFile), sym
 }
 
-func (r *Resolver) resolveVarDecl(mod *module, v *ast.VarStmt, scope *scopeStack) {
-	if v.Type != nil {
-		r.resolveType(mod, v.Type, scope)
+func (r *Resolver) lookupFile(segs []string) string {
+	for i := len(segs); i >= 1; i-- {
+		candidate := strings.Join(segs[:i], "/")
+		if _, ok := r.files[candidate]; ok {
+			return candidate
+		}
 	}
-	if v.Init != nil {
-		ast.Walk(v.Init, func(n ast.Node) bool {
-			switch n := n.(type) {
-			case *ast.CallExpr:
-				r.resolveExprName(mod, n.Callee.Val, scope)
-				if r.needsRename(mod, n.Callee.Val, scope) {
-					mod.renames[n.Callee] = struct{}{}
-				}
-			case *ast.Ident:
-				r.resolveExprName(mod, n.Val, scope)
-				if r.needsRename(mod, n.Val, scope) {
-					mod.renames[n] = struct{}{}
-				}
-			}
-			return true
-		})
-	}
+	return ""
 }
 
-func (r *Resolver) resolveValDecl(mod *module, v *ast.ValStmt, scope *scopeStack) {
-	if v.Type != nil {
-		r.resolveType(mod, v.Type, scope)
-	}
-	if v.Init != nil {
-		ast.Walk(v.Init, func(n ast.Node) bool {
-			switch n := n.(type) {
-			case *ast.CallExpr:
-				r.resolveExprName(mod, n.Callee.Val, scope)
-				if r.needsRename(mod, n.Callee.Val, scope) {
-					mod.renames[n.Callee] = struct{}{}
-				}
-			case *ast.Ident:
-				r.resolveExprName(mod, n.Val, scope)
-				if r.needsRename(mod, n.Val, scope) {
-					mod.renames[n] = struct{}{}
-				}
-			}
-			return true
-		})
-	}
-}
-
-// ── Symbol/file lookup ────────────────────────────────────────────────────────
-
-// resolvePathSegs converts an import prefix (containing package/super/path segments)
-// into root-relative path segments, resolving package/super relative to sourceFile.
-func (r *Resolver) resolvePathSegs(prefix []string, sourceFile string) []string {
+// lookupPath resolves an import prefix (containing package/super/path segments)
+// relative to sourceFile and returns the matching file path, or "" if not found.
+func (r *Resolver) lookupPath(prefix []string, sourceFile string) string {
 	dir := path.Dir(sourceFile)
 	var segs []string
 	for _, p := range prefix {
@@ -488,43 +428,8 @@ func (r *Resolver) resolvePathSegs(prefix []string, sourceFile string) []string 
 	if trimmed != "." && trimmed != "" {
 		segs = append(strings.Split(trimmed, "/"), segs...)
 	}
-	return segs
+	return r.lookupFile(segs)
 }
-
-// resolveQualifiedName resolves an inline qualified name like "foo::bar" or
-// "package::file::sym" to (filePath, sym) using the module map or path resolution.
-func (r *Resolver) resolveQualifiedName(mod *module, name string, sourceFile string) (string, string) {
-	parts := strings.Split(name, "::")
-	sym := parts[len(parts)-1]
-	root := parts[0]
-
-	if entry, ok := mod.imports[root]; ok {
-		p := entry.path
-		p = append(p, parts[1:len(parts)-1]...)
-		p = r.resolvePathSegs(p, sourceFile)
-		file := r.lookupFile(p)
-		if file == "" {
-			// Fallback: the import alias may point to a module file whose name
-			// is entry.sym (e.g. import package::dir::modname → file "dir/modname").
-			file = r.lookupFile(append(p, entry.sym))
-		}
-		return file, sym
-	}
-	p := r.resolvePathSegs(parts[:len(parts)-1], sourceFile)
-	return r.lookupFile(p), sym
-}
-
-func (r *Resolver) lookupFile(segs []string) string {
-	for i := len(segs); i >= 1; i-- {
-		candidate := strings.Join(segs[:i], "/")
-		if _, ok := r.files[candidate]; ok {
-			return candidate
-		}
-	}
-	return ""
-}
-
-// ── AST helpers ───────────────────────────────────────────────────────────────
 
 func isBuiltinType(typ string) bool {
 	switch typ {
@@ -551,47 +456,6 @@ func isBuiltinType(typ string) bool {
 	}
 }
 
-// refWalker carries the state needed to resolve and rename references inside a
-// function body. Using a struct with a method avoids a self-referential closure.
-type refWalker struct {
-	r     *Resolver
-	mod   *module
-	scope *scopeStack
-}
-
-func (w *refWalker) walk(n ast.Node) bool {
-	switch n := n.(type) {
-	case *ast.BlockStmt:
-		w.scope.push()
-		for _, s := range n.Stmts {
-			ast.Walk(s, w.walk)
-		}
-		w.scope.pop()
-		return false
-	case *ast.VarStmt:
-		if n.Type != nil {
-			w.r.resolveType(w.mod, n.Type, w.scope)
-		}
-		w.scope.add(n.Name.Val)
-	case *ast.ValStmt:
-		if n.Type != nil {
-			w.r.resolveType(w.mod, n.Type, w.scope)
-		}
-		w.scope.add(n.Name.Val)
-	case *ast.CallExpr:
-		w.r.resolveExprName(w.mod, n.Callee.Val, w.scope)
-		if w.r.needsRename(w.mod, n.Callee.Val, w.scope) {
-			w.mod.renames[n.Callee] = struct{}{}
-		}
-	case *ast.Ident:
-		w.r.resolveExprName(w.mod, n.Val, w.scope)
-		if w.r.needsRename(w.mod, n.Val, w.scope) {
-			w.mod.renames[n] = struct{}{}
-		}
-	}
-	return true
-}
-
 type scopeStack struct {
 	blocks []map[string]struct{}
 }
@@ -613,7 +477,8 @@ func (s *scopeStack) add(name string) {
 }
 
 func (s scopeStack) has(name string) bool {
-	for i := len(s.blocks) - 1; i >= 0; i-- {
+	// Don't check the global namespace
+	for i := len(s.blocks) - 1; i > 0; i-- {
 		if _, ok := s.blocks[i][name]; ok {
 			return true
 		}
@@ -621,7 +486,7 @@ func (s scopeStack) has(name string) bool {
 	return false
 }
 
-func getDeclName(d ast.Decl) string {
+func getNodeName(d ast.Node) string {
 	switch d := d.(type) {
 	case *ast.FuncDecl:
 		return d.Name.Val
@@ -638,7 +503,7 @@ func getDeclName(d ast.Decl) string {
 	}
 }
 
-func setDeclName(d ast.Decl, name string) {
+func setNodeName(d ast.Decl, name string) {
 	switch d := d.(type) {
 	case *ast.FuncDecl:
 		d.Name.Val = name
@@ -651,6 +516,17 @@ func setDeclName(d ast.Decl, name string) {
 	case *ast.TypeAliasDecl:
 		d.Name.Val = name
 	}
+}
+
+func mangleName(file, sym string) string {
+	return "package_" + strings.ReplaceAll(file, "/", "_") + "_" + sym
+}
+
+func pickBranch[T ast.Node](cond ast.Expr, then, els T, defines map[string]bool) T {
+	if evalCondition(cond, defines) {
+		return then
+	}
+	return els
 }
 
 func evalCondition(expr ast.Expr, defines map[string]bool) bool {
@@ -689,8 +565,4 @@ func evalCondition(expr ast.Expr, defines map[string]bool) bool {
 	}
 
 	return false
-}
-
-func mangleName(file, sym string) string {
-	return "package_" + strings.ReplaceAll(file, "/", "_") + "_" + sym
 }

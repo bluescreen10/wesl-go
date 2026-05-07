@@ -1,7 +1,13 @@
 package ast
 
+import "reflect"
+
 func Walk(n Node, fn func(Node) bool) {
-	if n == nil || !fn(n) {
+	if v := reflect.ValueOf(n); v.Kind() == reflect.Pointer && v.IsNil() {
+		return
+	}
+
+	if !fn(n) {
 		return
 	}
 
@@ -30,6 +36,27 @@ func Walk(n Node, fn func(Node) bool) {
 	case *StructDecl:
 		WalkList(n.Attrs, fn)
 		WalkList(n.Members, fn)
+	case *TypeAliasDecl:
+		WalkList(n.Attrs, fn)
+		Walk(n.Name, fn)
+		Walk(n.Type, fn)
+	case *ConstAssertStmt:
+		WalkList(n.Attrs, fn)
+		Walk(n.Expr, fn)
+
+	// Params / Members
+	case *FuncParam:
+		WalkList(n.Attrs, fn)
+		Walk(n.Type, fn)
+	case *StructMember:
+		WalkList(n.Attrs, fn)
+		Walk(n.Type, fn)
+
+	// Clauses
+	case *CaseClause:
+		WalkList(n.Attrs, fn)
+		WalkList(n.Selectors, fn)
+		Walk(n.Body, fn)
 
 	// Stmt
 	case *AssignmentStmt:
@@ -41,9 +68,14 @@ func Walk(n Node, fn func(Node) bool) {
 		Walk(n.Value, fn)
 	case *VarStmt:
 		WalkList(n.Attrs, fn)
+		WalkList(n.TemplateArgs, fn)
+		Walk(n.Name, fn)
+		Walk(n.Type, fn)
 		Walk(n.Init, fn)
 	case *ValStmt:
 		WalkList(n.Attrs, fn)
+		Walk(n.Name, fn)
+		Walk(n.Type, fn)
 		Walk(n.Init, fn)
 	case *BreakStmt:
 		WalkList(n.Attrs, fn)
