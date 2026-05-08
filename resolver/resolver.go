@@ -293,7 +293,7 @@ func (r *Resolver) resolveName(mod *module, ident *ast.Ident, scope *scopeStack)
 		return true
 	}
 
-	if isBuiltinType(name) {
+	if ast.IsBuiltinType(name) {
 		return false
 	}
 
@@ -428,30 +428,6 @@ func (r *Resolver) lookupPath(prefix []string, sourceFilename string) string {
 	return r.lookupFile(segs)
 }
 
-func isBuiltinType(typ string) bool {
-	switch typ {
-	case "array", "atomic", "bool",
-		"f16", "f32", "i32", "u32",
-		"mat2x2", "mat2x3", "mat2x4",
-		"mat3x2", "mat3x3", "mat3x4",
-		"mat4x2", "mat4x3", "mat4x4",
-		"ptr",
-		"sampler", "sampler_comparison",
-		"texture_1d", "texture_2d", "texture_2d_array",
-		"texture_3d", "texture_cube", "texture_cube_array",
-		"texture_depth_2d", "texture_depth_2d_array",
-		"texture_depth_cube", "texture_depth_cube_array",
-		"texture_depth_multisampled_2d",
-		"texture_multisampled_2d",
-		"texture_storage_1d", "texture_storage_2d",
-		"texture_storage_2d_array", "texture_storage_3d",
-		"vec2", "vec3", "vec4",
-		"binding_array":
-		return true
-	default:
-		return false
-	}
-}
 
 type scopeStack struct {
 	blocks []map[string]struct{}
