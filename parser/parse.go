@@ -743,7 +743,7 @@ func (p *parser) parseBlankAssignment(attrs []*ast.Attribute) *ast.AssignmentStm
 //   - An increment_statement  ('++' follows)
 //   - A decrement_statement   ('--' follows)
 func (p *parser) parseExpressionStatement(attrs []*ast.Attribute) ast.Stmt {
-	expr := p.parsePostfixExpr()
+	expr := p.parseUnaryExpr()
 
 	switch p.peek().typ {
 	case tokenPlusPlus, tokenMinusMinus:

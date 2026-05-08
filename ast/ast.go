@@ -1,123 +1,137 @@
 package ast
 
+// Node is the base interface for every element in the AST.
+// All concrete node types implement this interface through marker methods.
 type Node interface {
 	node()
 }
 
-// type Clause interface {
-// 	Node
-// }
-
+// IfAttr is a generic conditional node that selects between two branches
+// based on a compile-time @if attribute condition. T is the kind of node
+// held in the Then/Else branches (Decl, Stmt, Param, etc.).
 type IfAttr[T any] struct {
-	Cond Expr
-	Then T
-	Else T
+	Cond Expr // compile-time boolean expression that selects the branch
+	Then T    // branch taken when Cond evaluates to true
+	Else T    // branch taken when Cond evaluates to false
 }
 
 // ----------------------------------------------------------------------------
 // Decls
 type (
-	// Interface
+	// Decl is the interface implemented by every top-level declaration node.
 	Decl interface {
 		Node
 		declNode()
 	}
 
-	// Diagnostic Directive
+	// DiagnosticDirective represents a WGSL diagnostic directive that controls
+	// how the shader compiler reports diagnostics for a given rule.
 	DiagnosticDirective struct {
-		Attrs   []*Attribute
-		Control DiagnosticControl
+		Attrs   []*Attribute      // attributes applied to this directive
+		Control DiagnosticControl // severity and rule name for the diagnostic
 	}
 
-	// Diagnostic Control
+	// DiagnosticControl holds the severity level and rule name for a diagnostic
+	// directive.
 	DiagnosticControl struct {
-		Severity string
-		RuleName string
+		Severity string // diagnostic severity (e.g. "error", "warning", "info", "off")
+		RuleName string // qualified rule name (e.g. "derivative_uniformity")
 	}
 
-	// Enable Directive
+	// EnableDirective represents a WGSL enable directive that activates one or
+	// more language extensions.
 	EnableDirective struct {
-		Attrs      []*Attribute
-		Extensions []string
+		Attrs      []*Attribute // attributes applied to this directive
+		Extensions []string     // names of the extensions to enable
 	}
 
-	// Function
+	// FuncDecl represents a function declaration, including its name, parameter
+	// list, optional return type, and body.
 	FuncDecl struct {
-		Name        *Ident
-		Attrs       []*Attribute
-		Params      []Param
-		ReturnAttrs []*Attribute
-		ReturnType  *TypeSpecifier
-		Body        *BlockStmt
+		Name        *Ident         // function name
+		Attrs       []*Attribute   // attributes applied to the function (e.g. @vertex)
+		Params      []Param        // ordered list of parameters
+		ReturnAttrs []*Attribute   // attributes applied to the return type (e.g. @builtin)
+		ReturnType  *TypeSpecifier // return type; nil when the function returns nothing
+		Body        *BlockStmt     // function body
 	}
 
-	// Function Param
+	// Param is the interface implemented by all function parameter nodes,
+	// including conditional @if parameters.
 	Param interface {
 		Node
 		paramNode()
 	}
 
-	// Param
+	// FuncParam represents a single named, typed function parameter.
 	FuncParam struct {
-		Name  string
-		Type  *TypeSpecifier
-		Attrs []*Attribute
+		Name  string         // parameter name
+		Type  *TypeSpecifier // declared parameter type
+		Attrs []*Attribute   // attributes applied to the parameter (e.g. @builtin)
 	}
 
-	// @if Param
+	// IfAttrParam is a conditional function parameter whose presence is
+	// controlled by an @if attribute evaluated at compile time.
 	IfAttrParam IfAttr[Param]
 
-	// @if
+	// IfAttrDecl is a conditional top-level declaration whose presence is
+	// controlled by an @if attribute evaluated at compile time.
 	IfAttrDecl IfAttr[Decl]
 
-	// Import declaration
+	// ImportDecl groups one or more import statements that bring external
+	// symbols into scope.
 	ImportDecl struct {
-		Imports []ImportedItem
+		Imports []ImportedItem // individual imports collected in this declaration
 	}
 
 	// ImportedItem is a single fully-qualified import with an optional alias.
 	// Path holds every segment including the leading anchor (package/super) and
-	// the final symbol name.  Example: import package::foo::bar as b
+	// the final symbol name. For example: import package::foo::bar as b
 	// → ImportedItem{Path: ["package","foo","bar"], Alias: "b"}
 	ImportedItem struct {
-		Path  []string
-		Alias string
+		Path  []string // fully-qualified path segments including the anchor and symbol name
+		Alias string   // local alias for the imported symbol; empty means use the symbol name
 	}
 
-	// Reqiures Directive
+	// RequiresDirective represents a WGSL requires directive that asserts the
+	// presence of one or more language features.
 	RequiresDirective struct {
-		Attrs      []*Attribute
-		Extensions []string
+		Attrs      []*Attribute // attributes applied to this directive
+		Extensions []string     // names of the required features
 	}
 
-	// Struct
+	// StructDecl represents a struct type declaration with its name, optional
+	// attributes, and ordered list of members.
 	StructDecl struct {
-		Name    *Ident
-		Attrs   []*Attribute
-		Members []Member
+		Name    *Ident       // struct type name
+		Attrs   []*Attribute // attributes applied to the struct
+		Members []Member     // ordered list of struct members
 	}
 
-	// Struct Member
+	// Member is the interface implemented by all struct member nodes, including
+	// conditional @if members.
 	Member interface {
 		Node
 		structMemberNode()
 	}
 
-	// Struct Field
+	// StructMember represents a single named, typed field inside a struct.
 	StructMember struct {
-		Name  string
-		Attrs []*Attribute
-		Type  *TypeSpecifier
+		Name  string         // field name
+		Attrs []*Attribute   // attributes applied to the field (e.g. @builtin, @location)
+		Type  *TypeSpecifier // declared field type
 	}
 
-	// @if Struct Member
+	// IfAttrStructMember is a conditional struct field whose presence is
+	// controlled by an @if attribute evaluated at compile time.
 	IfAttrStructMember IfAttr[Member]
 
-	// Type Alias
+	// TypeAliasDecl represents a type alias declaration that binds a new name
+	// to an existing type.
 	TypeAliasDecl struct {
-		Name  *Ident
-		Attrs []*Attribute
-		Type  *TypeSpecifier
+		Name  *Ident         // alias name being declared
+		Attrs []*Attribute   // attributes applied to the alias
+		Type  *TypeSpecifier // the underlying type this alias refers to
 	}
 )
 
@@ -157,156 +171,167 @@ func (*IfAttrParam) node() {}
 // ----------------------------------------------------------------------------
 // Stmt
 type (
-	// Interface
+	// Stmt is the interface implemented by every statement node.
 	Stmt interface {
 		Node
 		stmtNode()
 	}
 
-	// Assignment
+	// AssignmentStmt represents a simple or compound assignment (e.g. x = y,
+	// x += y). A nil LHS stands for the phony assignment target _.
 	AssignmentStmt struct {
-		Attrs []*Attribute
-		LHS   Expr
-		RHS   Expr
-		Op    string
+		Attrs []*Attribute // attributes applied to the statement
+		LHS   Expr         // left-hand side of the assignment; nil for phony target
+		RHS   Expr         // right-hand side value being assigned
+		Op    string       // assignment operator, e.g. "=", "+=", "-="
 	}
 
-	// Break (Cond non-nil → break if)
+	// BreakStmt represents a break statement that exits the nearest enclosing
+	// loop. When Cond is non-nil it is a "break if" conditional break.
 	BreakStmt struct {
-		Attrs []*Attribute
-		Cond  Expr
+		Attrs []*Attribute // attributes applied to the statement
+		Cond  Expr         // optional condition for "break if"; nil for unconditional break
 	}
 
-	// Const Assert
+	// ConstAssertStmt represents a compile-time assertion that the given
+	// expression evaluates to true.
 	ConstAssertStmt struct {
-		Attrs []*Attribute
-		Expr  Expr
+		Attrs []*Attribute // attributes applied to the statement
+		Expr  Expr         // boolean expression that must be true at compile time
 	}
 
-	// Continue
+	// ContinueStmt represents a continue statement that skips the rest of the
+	// current loop iteration.
 	ContinueStmt struct {
-		Attrs []*Attribute
+		Attrs []*Attribute // attributes applied to the statement
 	}
 
-	// Continuing
+	// ContinuingStmt represents a continuing block that runs at the end of each
+	// loop iteration.
 	ContinuingStmt struct {
-		Attrs []*Attribute
-		Body  *BlockStmt
+		Attrs []*Attribute // attributes applied to the statement
+		Body  *BlockStmt   // statements executed at the end of each iteration
 	}
 
-	// Compound
+	// BlockStmt represents a brace-enclosed sequence of statements.
 	BlockStmt struct {
-		Attrs []*Attribute
-		Stmts []Stmt
+		Attrs []*Attribute // attributes applied to the block
+		Stmts []Stmt       // ordered list of statements in the block
 	}
 
-	// Decrement
-	DecrementStmt struct {
-		Attrs []*Attribute
-		LHS   Expr
-	}
-
-	// Discard
+	// DiscardStmt represents a discard statement that terminates the current
+	// fragment shader invocation.
 	DiscardStmt struct {
-		Attrs []*Attribute
+		Attrs []*Attribute // attributes applied to the statement
 	}
 
-	// Empty
+	// EmptyStmt represents a no-op statement (a bare semicolon).
 	EmptyStmt struct{}
 
-	// For
+	// ForStmt represents a for-loop with an optional initializer, condition, and
+	// update statement.
 	ForStmt struct {
-		Attrs  []*Attribute
-		Init   Stmt
-		Cond   Expr
-		Update Stmt
-		Body   *BlockStmt
+		Attrs  []*Attribute // attributes applied to the loop
+		Init   Stmt         // optional initializer executed before the first iteration; nil if absent
+		Cond   Expr         // optional loop condition evaluated before each iteration; nil means infinite
+		Update Stmt         // optional statement executed after each iteration; nil if absent
+		Body   *BlockStmt   // loop body
 	}
 
-	// Function Call
+	// FuncCallStmt represents a function call used as a statement (the return
+	// value, if any, is discarded).
 	FuncCallStmt struct {
-		Attrs []*Attribute
-		Call  *CallExpr
+		Attrs []*Attribute // attributes applied to the statement
+		Call  *CallExpr    // the function call expression being executed
 	}
 
-	// If
+	// IfStmt represents an if/else-if/else conditional statement.
 	IfStmt struct {
-		Attrs  []*Attribute
-		Cond   Expr
-		Then   *BlockStmt
-		ElseIf *IfStmt
-		Else   *BlockStmt
+		Attrs  []*Attribute // attributes applied to the if statement
+		Cond   Expr         // condition that determines which branch executes
+		Then   *BlockStmt   // block executed when Cond is true
+		ElseIf *IfStmt      // chained else-if clause; nil if absent
+		Else   *BlockStmt   // block executed when all conditions are false; nil if absent
 	}
 
-	// @If
+	// IfAttrStmt is a conditional statement whose presence is controlled by an
+	// @if attribute evaluated at compile time.
 	IfAttrStmt IfAttr[Stmt]
 
-	// Increment
+	// IncDecStmt represents an increment or decrement expression statement
+	// (e.g. x++ or x--).
 	IncDecStmt struct {
-		Attrs []*Attribute
-		LHS   Expr
-		Op    string
+		Attrs []*Attribute // attributes applied to the statement
+		LHS   Expr         // expression being incremented or decremented
+		Op    string       // operator: "++" or "--"
 	}
 
-	// Loop
+	// LoopStmt represents an unconditional loop that repeats until an explicit
+	// break.
 	LoopStmt struct {
-		Attrs     []*Attribute
-		BodyAttrs []*Attribute
-		Body      *BlockStmt
+		Attrs     []*Attribute // attributes applied to the loop
+		BodyAttrs []*Attribute // attributes applied to the loop body block
+		Body      *BlockStmt   // loop body executed on each iteration
 	}
 
-	// Return
+	// ReturnStmt represents a return statement, optionally carrying a value.
 	ReturnStmt struct {
-		Attrs []*Attribute
-		Value Expr
+		Attrs []*Attribute // attributes applied to the statement
+		Value Expr         // value returned to the caller; nil for void returns
 	}
 
-	// Switch
+	// SwitchStmt represents a switch statement that dispatches on an expression
+	// value across one or more case clauses.
 	SwitchStmt struct {
-		Attrs   []*Attribute
-		Expr    Expr
-		Clauses []Clause
+		Attrs   []*Attribute // attributes applied to the switch statement
+		Expr    Expr         // expression whose value is matched against the clauses
+		Clauses []Clause     // ordered list of case and default clauses
 	}
 
-	// Switch clauses
+	// Clause is the interface implemented by all switch clause nodes.
 	Clause interface {
 		Node
 		switchClauseNode()
 	}
 
-	// Case
+	// CaseClause represents a single case or default clause inside a switch
+	// statement. A nil Selectors slice indicates the default clause.
 	CaseClause struct {
-		Attrs     []*Attribute
-		Selectors []Expr
-		Body      *BlockStmt
+		Attrs     []*Attribute // attributes applied to the clause
+		Selectors []Expr       // case selector expressions; nil for the default clause
+		Body      *BlockStmt   // statements executed when this clause matches
 	}
 
-	// @if
+	// IfAttrClause is a conditional switch clause whose presence is controlled
+	// by an @if attribute evaluated at compile time.
 	IfAttrClause IfAttr[Clause]
 
-	// Local var statement
+	// VarStmt declares a mutable local variable with an optional type and
+	// initializer.
 	VarStmt struct {
-		Attrs        []*Attribute
-		TemplateArgs []Expr
-		Name         *Ident
-		Type         *TypeSpecifier
-		Init         Expr
+		Attrs        []*Attribute   // attributes applied to the declaration
+		TemplateArgs []Expr         // optional template arguments for the var keyword (e.g. address space)
+		Name         *Ident         // declared variable name
+		Type         *TypeSpecifier // explicit type annotation; nil when inferred from the initializer
+		Init         Expr           // optional initializer expression; nil if not provided
 	}
 
-	// Local let/const statement (Keyword is "let" or "const")
+	// ValStmt declares an immutable local binding using let or const.
+	// Keyword is "let" for runtime-constant bindings and "const" for
+	// compile-time constants.
 	ValStmt struct {
-		Attrs   []*Attribute
-		Keyword string
-		Name    *Ident
-		Type    *TypeSpecifier
-		Init    Expr
+		Attrs   []*Attribute   // attributes applied to the declaration
+		Keyword string         // binding keyword: "let" or "const"
+		Name    *Ident         // declared binding name
+		Type    *TypeSpecifier // explicit type annotation; nil when inferred from the initializer
+		Init    Expr           // initializer expression
 	}
 
-	// While
+	// WhileStmt represents a while-loop that repeats as long as Cond is true.
 	WhileStmt struct {
-		Attrs []*Attribute
-		Cond  Expr
-		Body  *BlockStmt
+		Attrs []*Attribute // attributes applied to the loop
+		Cond  Expr         // loop condition evaluated before each iteration
+		Body  *BlockStmt   // loop body executed when Cond is true
 	}
 )
 
@@ -359,71 +384,77 @@ func (*CaseClause) node()   {}
 // ----------------------------------------------------------------------------
 // Expr
 type (
-	// Interface
+	// Expr is the interface implemented by every expression node.
 	Expr interface {
 		Node
 		exprNode()
 	}
 
-	// Ref
+	// AddrOfExpr represents the address-of unary expression (&operand), which
+	// produces a pointer to the storage location of its operand.
 	AddrOfExpr struct {
-		Operand Expr
+		Operand Expr // expression whose address is taken
 	}
 
-	// Binary
+	// BinaryExpr represents a binary infix expression such as arithmetic,
+	// comparison, or logical operations.
 	BinaryExpr struct {
-		Op    string
-		Left  Expr
-		Right Expr
+		Op    string // binary operator (e.g. "+", "==", "&&")
+		Left  Expr   // left-hand operand
+		Right Expr   // right-hand operand
 	}
 
-	// Function Call
+	// CallExpr represents a function or constructor call, optionally with
+	// template arguments.
 	CallExpr struct {
-		Callee       *Ident
-		TemplateArgs []Expr
-		Args         []Expr
+		Callee       *Ident // name of the function or type constructor being called
+		TemplateArgs []Expr // optional template arguments enclosed in angle brackets
+		Args         []Expr // positional call arguments
 	}
 
-	// Deref
+	// DerefExpr represents the pointer dereference unary expression (*operand),
+	// which yields the value at the address held by the operand.
 	DerefExpr struct {
-		Operand Expr
+		Operand Expr // pointer expression being dereferenced
 	}
 
-	// @if
-	//IfAttrExpr IfAttr[Expr]
-
-	// Ident
+	// Ident represents an identifier, either a simple name or a qualified path.
+	// For simple names Path is nil and Val holds the full name. For qualified
+	// references such as "package::foo::bar", Path is ["package","foo"] and Val
+	// is "bar".
 	Ident struct {
-		Path []string // nil for simple names; leading segments for qualified names (e.g. ["package","foo"] in package::foo::bar)
-		Val  string   // final symbol (e.g. "bar"), or full name for simple idents
+		Path []string // leading path segments for qualified names; nil for simple identifiers
+		Val  string   // final symbol name, or the full name for simple identifiers
 	}
 
-	// Index
+	// IndexExpr represents a subscript expression (base[index]).
 	IndexExpr struct {
-		Base  Expr
-		Index Expr
+		Base  Expr // expression being indexed
+		Index Expr // index value
 	}
 
-	// Literal
+	// LitExpr represents a literal value token such as a number or boolean
+	// constant.
 	LitExpr struct {
-		Val string
+		Val string // source text of the literal (e.g. "42", "3.14", "true")
 	}
 
-	// Member
+	// MemberExpr represents a struct field access expression (base.member).
 	MemberExpr struct {
-		Base   Expr
-		Member string
+		Base   Expr   // expression whose field is being accessed
+		Member string // name of the field being accessed
 	}
 
-	// Parenthesis
+	// ParenExpr represents an explicitly parenthesized expression. It is kept
+	// in the AST to allow round-trip printing without altering precedence.
 	ParenExpr struct {
-		Inner Expr
+		Inner Expr // the expression enclosed in parentheses
 	}
 
-	// Unary
+	// UnaryExpr represents a unary prefix expression.
 	UnaryExpr struct {
-		Op      string
-		Operand Expr
+		Op      string // unary operator (e.g. "-", "!", "~")
+		Operand Expr   // expression the operator is applied to
 	}
 )
 
@@ -453,30 +484,35 @@ func (*UnaryExpr) node()  {}
 // Type, Attributes, Identifiers, Values, etc.
 
 type (
-	// Attribute
+	// Attribute represents a WGSL attribute (e.g. @location(0), @vertex).
 	Attribute struct {
 		Node
-		Name string
-		Args []Expr
+		Name string // attribute name without the leading @ (e.g. "location", "vertex")
+		Args []Expr // optional attribute arguments
 	}
 
-	// Type
+	// TypeSpecifier represents a type reference, optionally parameterized with
+	// template arguments (e.g. vec3<f32>, array<u32, 4>).
 	TypeSpecifier struct {
 		Node
-		Name         *Ident
-		TemplateArgs []Expr
+		Name         *Ident // name of the type being referenced
+		TemplateArgs []Expr // optional template arguments (e.g. element type for vec/array)
 	}
 )
 
+// File is the root AST node for a single parsed source file.
 type File struct {
 	Node
-	Decls []Decl
+	Decls []Decl // top-level declarations in source order
 }
 
 func (*Attribute) node()     {}
 func (*TypeSpecifier) node() {}
 func (*File) node()          {}
 
+// AsExpr converts a TypeSpecifier to an Expr so it can appear in positions
+// that accept an expression. A bare type name is returned as an Ident; a
+// parameterized type is returned as a CallExpr with template arguments.
 func (ts TypeSpecifier) AsExpr() Expr {
 	if len(ts.TemplateArgs) == 0 {
 		return ts.Name

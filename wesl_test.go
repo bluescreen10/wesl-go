@@ -129,3 +129,16 @@ func TestConditionalTranslation(t *testing.T) {
 		})
 	}
 }
+
+func TestParser(t *testing.T) {
+	w := wesl.New()
+	err := w.ParseGlob("testdata/shaders", "*.wgsl")
+	if err != nil {
+		t.Errorf("error parsing: %v", err)
+	}
+
+	_, err = w.Compile("alpenglow/bicyclic_scan_03_lower_scan.wgsl", nil)
+	if err != nil {
+		t.Errorf("error compiling: %v", err)
+	}
+}

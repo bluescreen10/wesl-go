@@ -62,15 +62,21 @@ const (
 	DCOLON    = "::"
 )
 
+// printer serializes AST nodes to a Writer. It is an internal type; use Fprint
+// to access printing functionality.
 type printer struct {
-	writer io.Writer
+	writer io.Writer // destination for all output written by the printer
 }
 
+// Fprint sets the destination writer and prints node n to it. Calling Fprint
+// multiple times on the same printer reuses the instance with the new writer.
 func (p *printer) Fprint(w io.Writer, n ast.Node) {
 	p.writer = w
 	p.printNode(n)
 }
 
+// printNode dispatches to the appropriate typed print method based on the
+// runtime type of n.
 func (p *printer) printNode(n ast.Node) {
 	switch n := n.(type) {
 	case *ast.File:
@@ -84,14 +90,17 @@ func (p *printer) printNode(n ast.Node) {
 	}
 }
 
+// writeBytes writes one or more raw bytes directly to the writer.
 func (p *printer) writeBytes(chars ...byte) {
 	p.writer.Write(chars)
 }
 
+// writeString writes s as a byte slice to the writer.
 func (p *printer) writeString(s string) {
 	p.writer.Write([]byte(s))
 }
 
+// printAttr prints a single attribute in the form @name or @name(args...).
 func (p *printer) printAttr(attr *ast.Attribute) {
 	p.writeString(attr.Name)
 	if len(attr.Args) > 0 {
@@ -106,6 +115,7 @@ func (p *printer) printAttr(attr *ast.Attribute) {
 	}
 }
 
+// printAttrs prints each attribute in attrs followed by a space separator.
 func (p *printer) printAttrs(attrs []*ast.Attribute) {
 	for _, a := range attrs {
 		p.printAttr(a)
@@ -113,6 +123,9 @@ func (p *printer) printAttrs(attrs []*ast.Attribute) {
 	}
 }
 
+// printDecl prints a top-level declaration. Statements that are also valid as
+// declarations (VarStmt, ValStmt, ConstAssertStmt) are printed as statements
+// with a trailing semicolon.
 func (p *printer) printDecl(d ast.Decl) {
 	switch d := d.(type) {
 	case *ast.ConstAssertStmt, *ast.VarStmt, *ast.ValStmt:
@@ -186,6 +199,8 @@ func (p *printer) printDecl(d ast.Decl) {
 	}
 }
 
+// printImportDecl prints each imported item in d as a separate import
+// statement, including its alias when one is present.
 func (p *printer) printImportDecl(d *ast.ImportDecl) {
 	for _, imp := range d.Imports {
 		p.writeString(IMPORT)
@@ -201,6 +216,8 @@ func (p *printer) printImportDecl(d *ast.ImportDecl) {
 	}
 }
 
+// printMember prints a struct member, handling both plain StructMember fields
+// and conditional @if IfAttrStructMember nodes.
 func (p *printer) printMember(m ast.Member) {
 	switch m := m.(type) {
 	case *ast.IfAttrStructMember:
@@ -221,6 +238,7 @@ func (p *printer) printMember(m ast.Member) {
 	}
 }
 
+// printExpr prints an expression node, dispatching on its concrete type.
 func (p *printer) printExpr(e ast.Expr) {
 	switch e := e.(type) {
 	case *ast.AddrOfExpr:
@@ -261,6 +279,9 @@ func (p *printer) printExpr(e ast.Expr) {
 	}
 }
 
+// printStmt prints a statement node, dispatching on its concrete type.
+// Block-structured statements (if, for, while, etc.) do not print a trailing
+// semicolon; simple statements do.
 func (p *printer) printStmt(s ast.Stmt) {
 	switch s := s.(type) {
 	case *ast.AssignmentStmt:
@@ -392,6 +413,8 @@ func (p *printer) printStmt(s ast.Stmt) {
 	}
 }
 
+// printIdent prints an identifier, prefixing qualified names with their
+// path segments separated by "::".
 func (p *printer) printIdent(i *ast.Ident) {
 	if len(i.Path) > 0 {
 		p.writeString(strings.Join(i.Path, DCOLON))
@@ -400,12 +423,15 @@ func (p *printer) printIdent(i *ast.Ident) {
 	p.writeString(i.Val)
 }
 
+// printClauses prints all switch clauses in the order they appear.
 func (p *printer) printClauses(clauses []ast.Clause) {
 	for _, c := range clauses {
 		p.printClause(c)
 	}
 }
 
+// printClause prints a single switch clause. A CaseClause with nil Selectors
+// is printed as the default clause.
 func (p *printer) printClause(c ast.Clause) {
 	switch c := c.(type) {
 	case *ast.CaseClause:
@@ -437,6 +463,8 @@ func (p *printer) printClause(c ast.Clause) {
 	}
 }
 
+// printCallExpr prints a function call expression, including optional template
+// arguments and the parenthesized argument list.
 func (p *printer) printCallExpr(e *ast.CallExpr) {
 	p.printIdent(e.Callee)
 	p.printTemplateArgs(e.TemplateArgs)
@@ -445,6 +473,8 @@ func (p *printer) printCallExpr(e *ast.CallExpr) {
 	p.writeBytes(RPAREN)
 }
 
+// printIfStmt prints an if statement including any chained else-if and else
+// branches.
 func (p *printer) printIfStmt(s *ast.IfStmt) {
 	p.printAttrs(s.Attrs)
 	p.writeString(IF)
@@ -464,6 +494,7 @@ func (p *printer) printIfStmt(s *ast.IfStmt) {
 	}
 }
 
+// printExprList prints a comma-separated list of expressions.
 func (p *printer) printExprList(exprs []ast.Expr) {
 	for i, e := range exprs {
 		if i > 0 {
@@ -473,6 +504,7 @@ func (p *printer) printExprList(exprs []ast.Expr) {
 	}
 }
 
+// printFile prints all top-level declarations in n, separated by spaces.
 func (p *printer) printFile(n *ast.File) {
 	for i, d := range n.Decls {
 		if i > 0 {
@@ -482,6 +514,8 @@ func (p *printer) printFile(n *ast.File) {
 	}
 }
 
+// printFuncDecl prints a function declaration including its attributes, name,
+// parameter list, optional return type, and body.
 func (p *printer) printFuncDecl(f *ast.FuncDecl) {
 	p.printAttrs(f.Attrs)
 	p.writeString(FUNC)
@@ -499,6 +533,8 @@ func (p *printer) printFuncDecl(f *ast.FuncDecl) {
 	p.printBlockStmt(f.Body)
 }
 
+// printBlockStmt prints a brace-enclosed block, inserting semicolons between
+// simple statements and omitting them after block-structured statements.
 func (p *printer) printBlockStmt(s *ast.BlockStmt) {
 	p.printAttrs(s.Attrs)
 	p.writeBytes(LBRACE, WHITESPACE)
@@ -531,6 +567,8 @@ func (p *printer) printBlockStmt(s *ast.BlockStmt) {
 	p.writeBytes(RBRACE)
 }
 
+// printParamList prints the parenthesized, comma-separated parameter list for
+// a function declaration.
 func (p *printer) printParamList(params []ast.Param) {
 	p.writeBytes(LPAREN)
 	for i, param := range params {
@@ -542,6 +580,8 @@ func (p *printer) printParamList(params []ast.Param) {
 	p.writeBytes(RPAREN)
 }
 
+// printParam prints a single function parameter, handling both plain FuncParam
+// nodes and conditional @if IfAttrParam nodes.
 func (p *printer) printParam(param ast.Param) {
 	switch param := param.(type) {
 	case *ast.IfAttrParam:
@@ -562,11 +602,15 @@ func (p *printer) printParam(param ast.Param) {
 	}
 }
 
+// printTypeSpecifier prints a type reference followed by any template
+// arguments enclosed in angle brackets.
 func (p *printer) printTypeSpecifier(t *ast.TypeSpecifier) {
 	p.printIdent(t.Name)
 	p.printTemplateArgs(t.TemplateArgs)
 }
 
+// printTemplateArgs prints angle-bracket enclosed template arguments when
+// args is non-empty; otherwise it is a no-op.
 func (p *printer) printTemplateArgs(args []ast.Expr) {
 	if len(args) > 0 {
 		p.writeBytes(LANGLE)
@@ -575,6 +619,8 @@ func (p *printer) printTemplateArgs(args []ast.Expr) {
 	}
 }
 
+// Fprint serializes the AST node n as WESL/WGSL source text and writes the
+// result to w.
 func Fprint(w io.Writer, n ast.Node) {
 	(&printer{}).Fprint(w, n)
 }

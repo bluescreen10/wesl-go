@@ -11,40 +11,50 @@ import (
 
 // fileSymbol uniquely identifies a symbol within a specific source file.
 type fileSymbol struct {
-	filename string
-	sym      string
+	filename string // path of the source file that defines the symbol
+	sym      string // local name of the symbol within that file
 }
 
-// importEntry is one explicit import in a module's import list.
+// importEntry records one explicit import from a module's import list.
 type importEntry struct {
-	path     []string
-	sym      string
-	filename string
+	path     []string // path segments before the final symbol name (including anchors)
+	sym      string   // unaliased symbol name being imported
+	filename string   // resolved source file path for the imported symbol; empty until resolved
 }
 
+// module holds all resolver state for a single source file.
 type module struct {
-	filename string
-	file     *ast.File
-	imports      map[string]importEntry // alias → import info
-	symbols      map[string]ast.Decl    // local symbol table
-	used         map[string]bool        // symbols marked as used
-	order        []string               // symbols in order first marked used
-	renames      map[*ast.Ident]bool    // idents to rename in the apply pass
-	constAsserts []*ast.ConstAssertStmt
+	filename     string                    // path of the source file this module represents
+	file         *ast.File                 // AST of the source file (possibly rewritten)
+	imports      map[string]importEntry    // alias → import info for all imports in this file
+	symbols      map[string]ast.Decl       // local symbol table mapping name → declaration
+	used         map[string]bool           // symbols reachable from the entry point
+	order        []string                  // names in the order they were first marked used
+	renames      map[*ast.Ident]bool       // idents that must be renamed during the apply pass
+	constAsserts []*ast.ConstAssertStmt    // const_assert statements collected from this module
 }
 
+// Resolver resolves imports and symbol references across a set of WESL source
+// files, producing a single merged AST.
 type Resolver struct {
-	files    map[string]*ast.File
-	defines  map[string]bool
-	resolved map[string]*module
-	order    []string // files in order of first load (pre-order)
+	files    map[string]*ast.File // all known source files keyed by their path
+	defines  map[string]bool      // compile-time feature flags used to evaluate @if conditions
+	resolved map[string]*module   // cache of already-loaded modules keyed by file path
+	order    []string             // file paths in pre-order load sequence (root is index 0)
 }
 
+// ResolveFile is a convenience function that constructs a Resolver and resolves
+// the given entry-point file. files is a map of all source files the resolver
+// may load, and defines is the set of active compile-time feature flags.
+// It returns the merged AST or an error if resolution fails.
 func ResolveFile(filename string, files map[string]*ast.File, defines map[string]bool) (*ast.File, error) {
 	r := New(files, defines)
 	return r.ResolveFile(filename)
 }
 
+// New creates a Resolver that can resolve imports across the given set of
+// source files. files maps each file path to its parsed AST, and defines
+// supplies the compile-time feature flags used to evaluate @if conditions.
 func New(files map[string]*ast.File, defines map[string]bool) *Resolver {
 	return &Resolver{
 		files:    files,
@@ -53,6 +63,10 @@ func New(files map[string]*ast.File, defines map[string]bool) *Resolver {
 	}
 }
 
+// ResolveFile resolves all imports and symbol references reachable from the
+// named entry-point file and returns a single merged AST containing only the
+// declarations that are actually used. It returns an error if any import or
+// symbol cannot be found, or if a panic occurs during resolution.
 func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 	defer func() {
 		if e := recover(); e != nil {
@@ -73,6 +87,9 @@ func (r *Resolver) ResolveFile(filename string) (f *ast.File, err error) {
 	return r.emitFile(mod), nil
 }
 
+// emitFile assembles the final merged AST from root and all transitively
+// loaded modules. Declarations from imported modules are appended in load
+// order after the root module's own declarations.
 func (r *Resolver) emitFile(root *module) *ast.File {
 	decls := root.file.Decls
 
@@ -95,6 +112,9 @@ func (r *Resolver) emitFile(root *module) *ast.File {
 	return &ast.File{Decls: decls}
 }
 
+// renameSymbols walks every ident that was flagged for renaming and replaces
+// its value with a collision-free output name. Root-module symbols keep their
+// original names; imported symbols are mangled to avoid clashes.
 func (r *Resolver) renameSymbols(root *module) {
 	// Seed names with root-module symbols so imported symbols that mangle to
 	// the same name get a numeric suffix instead of colliding.
@@ -113,6 +133,9 @@ func (r *Resolver) renameSymbols(root *module) {
 	}
 }
 
+// loadModule loads and initializes the module for the given file path, or
+// returns the already-cached module if it was loaded before. It returns nil
+// when the file path is not found in the resolver's file map.
 func (r *Resolver) loadModule(filename string) *module {
 	if mod := r.resolved[filename]; mod != nil {
 		return mod
@@ -139,6 +162,9 @@ func (r *Resolver) loadModule(filename string) *module {
 	return mod
 }
 
+// resolveConditionals rewrites f by evaluating every @if conditional node
+// against the resolver's defines map, replacing each conditional with the
+// appropriate branch.
 func (r *Resolver) resolveConditionals(f *ast.File) *ast.File {
 	out := ast.Rewrite(f, func(n ast.Node) ast.Node {
 		switch n := n.(type) {
@@ -159,6 +185,9 @@ func (r *Resolver) resolveConditionals(f *ast.File) *ast.File {
 	return out.(*ast.File)
 }
 
+// buildSymbolAndImports populates mod.symbols and mod.imports by scanning the
+// top-level declarations of the module's file. Import declarations are
+// consumed and not retained in the file's declaration list.
 func (r *Resolver) buildSymbolAndImports(mod *module) {
 	var j int
 
@@ -193,6 +222,10 @@ func (r *Resolver) buildSymbolAndImports(mod *module) {
 	mod.file.Decls = mod.file.Decls[:j]
 }
 
+// resolveRef marks root and all declarations it transitively depends on as
+// used within mod, loading external modules as needed. scope tracks local
+// variable bindings introduced by the current declaration so they are not
+// mistaken for module-level symbol references.
 func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 	scope := newScopeStack()
 
@@ -247,7 +280,9 @@ func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 	ast.Walk(root, walk)
 }
 
-// lookupImportFile resolves the filename for an importEntry relative to mod.
+// lookupImportFile resolves the source file path for an importEntry relative
+// to mod's own file. It first tries the import's path prefix alone, then
+// falls back to appending the symbol name as the last path segment.
 func (r *Resolver) lookupImportFile(mod *module, i importEntry) string {
 	if filename := r.lookupPath(i.path, mod.filename); filename != "" {
 		return filename
@@ -260,6 +295,8 @@ func (r *Resolver) lookupImportFile(mod *module, i importEntry) string {
 // and recurses into the declaration's own dependencies. Handles both plain
 // names and inline qualified references like "package::foo::MyType".
 // The used map acts as a cycle guard so mutual references terminate.
+// It returns true when ident was resolved to a module-level symbol that
+// requires renaming.
 func (r *Resolver) resolveName(mod *module, ident *ast.Ident, scope *scopeStack) bool {
 	if ident == nil || ident.Val == "" {
 		return false
@@ -317,8 +354,9 @@ func (r *Resolver) resolveName(mod *module, ident *ast.Ident, scope *scopeStack)
 	return false
 }
 
-// applyRename computes the output name for an ident whose original value is name.
-// Called during the apply pass; scope filtering has already been done at record time.
+// applyRename computes the collision-free output name for ident within mod.
+// rootFilename is the entry-point file's path; symbols defined there keep
+// their original names while symbols from other files are mangled.
 func (r *Resolver) applyRename(mod *module, ident *ast.Ident, names map[fileSymbol]string, rootFilename string) string {
 	if len(ident.Path) > 0 {
 		filename, sym := r.resolveQualifiedName(mod, ident)
@@ -351,8 +389,9 @@ func (r *Resolver) applyRename(mod *module, ident *ast.Ident, names map[fileSymb
 	return name
 }
 
-// nameFor returns the collision-free output name for (file, sym), allocating
-// one on first call and caching it for consistent reuse.
+// nameFor returns the collision-free output name for the (filename, sym) pair,
+// allocating a mangled name on first call and caching it for consistent reuse
+// across all references to the same symbol.
 func (r *Resolver) nameFor(filename, sym string, names map[fileSymbol]string) string {
 	key := fileSymbol{filename, sym}
 	if n, ok := names[key]; ok {
@@ -367,6 +406,7 @@ func (r *Resolver) nameFor(filename, sym string, names map[fileSymbol]string) st
 	return n
 }
 
+// nameTaken reports whether name is already assigned to any symbol in names.
 func (r *Resolver) nameTaken(name string, names map[fileSymbol]string) bool {
 	for _, v := range names {
 		if v == name {
@@ -376,7 +416,9 @@ func (r *Resolver) nameTaken(name string, names map[fileSymbol]string) bool {
 	return false
 }
 
-// resolveQualifiedName resolves a qualified ident (Path is non-empty) to (filename, sym).
+// resolveQualifiedName resolves a qualified ident (whose Path is non-empty) to
+// a (filename, sym) pair. It consults the module's import table to expand
+// import aliases before performing a path lookup.
 func (r *Resolver) resolveQualifiedName(mod *module, ident *ast.Ident) (string, string) {
 	sym := ident.Val
 	root := ident.Path[0]
@@ -394,6 +436,8 @@ func (r *Resolver) resolveQualifiedName(mod *module, ident *ast.Ident) (string, 
 	return r.lookupPath(ident.Path, mod.filename), sym
 }
 
+// lookupFile searches the resolver's file map for the longest prefix of segs
+// that matches a known file path, returning that path or "" if none is found.
 func (r *Resolver) lookupFile(segs []string) string {
 	for i := len(segs); i >= 1; i-- {
 		candidate := strings.Join(segs[:i], "/")
@@ -404,8 +448,9 @@ func (r *Resolver) lookupFile(segs []string) string {
 	return ""
 }
 
-// lookupPath resolves an import prefix (containing package/super/path segments)
-// relative to sourceFilename and returns the matching filename, or "" if not found.
+// lookupPath resolves an import path prefix (which may contain "package" and
+// "super" anchors) relative to sourceFilename and returns the matching file
+// path, or "" if no registered file matches.
 func (r *Resolver) lookupPath(prefix []string, sourceFilename string) string {
 	dir := path.Dir(sourceFilename)
 	var segs []string
@@ -428,27 +473,34 @@ func (r *Resolver) lookupPath(prefix []string, sourceFilename string) string {
 	return r.lookupFile(segs)
 }
 
-
+// scopeStack tracks lexically scoped local variable names introduced by
+// let/var declarations within a function body.
 type scopeStack struct {
-	blocks []map[string]struct{}
+	blocks []map[string]struct{} // stack of block-level name sets; index 0 is the outermost scope
 }
 
+// newScopeStack creates a scopeStack with a single empty outermost scope.
 func newScopeStack() *scopeStack {
 	return &scopeStack{blocks: []map[string]struct{}{make(map[string]struct{})}}
 }
 
+// push adds a new inner scope to the stack, used when entering a block statement.
 func (s *scopeStack) push() {
 	s.blocks = append(s.blocks, make(map[string]struct{}))
 }
 
+// pop removes the innermost scope from the stack, used when leaving a block statement.
 func (s *scopeStack) pop() {
 	s.blocks = s.blocks[:len(s.blocks)-1]
 }
 
+// add registers name in the innermost scope of the stack.
 func (s *scopeStack) add(name string) {
 	s.blocks[len(s.blocks)-1][name] = struct{}{}
 }
 
+// has reports whether name appears in any scope except the outermost (global)
+// scope, which holds module-level symbols rather than local variables.
 func (s scopeStack) has(name string) bool {
 	// Don't check the global namespace
 	for i := len(s.blocks) - 1; i > 0; i-- {
@@ -459,6 +511,9 @@ func (s scopeStack) has(name string) bool {
 	return false
 }
 
+// getNodeName returns the name identifier for named declaration nodes
+// (functions, structs, type aliases, let/var statements). It returns nil for
+// node types that do not carry a name.
 func getNodeName(d ast.Node) *ast.Ident {
 	switch d := d.(type) {
 	case *ast.FuncDecl:
@@ -476,11 +531,16 @@ func getNodeName(d ast.Node) *ast.Ident {
 	}
 }
 
-
+// mangleName produces a unique output name for sym defined in filename by
+// encoding the file path into the identifier, replacing path separators with
+// underscores.
 func mangleName(filename, sym string) string {
 	return "package_" + strings.ReplaceAll(filename, "/", "_") + "_" + sym
 }
 
+// pickBranch evaluates cond against defines and returns then if the condition
+// is true, or els otherwise. T must be an ast.Node so that the result can be
+// used directly as a replacement node in a Rewrite callback.
 func pickBranch[T ast.Node](cond ast.Expr, then, els T, defines map[string]bool) T {
 	if evalCondition(cond, defines) {
 		return then
@@ -488,6 +548,10 @@ func pickBranch[T ast.Node](cond ast.Expr, then, els T, defines map[string]bool)
 	return els
 }
 
+// evalCondition evaluates a compile-time boolean expression against the
+// provided defines map and returns the result. Identifiers are looked up in
+// defines (missing keys evaluate to false). Supported operators are !, &&,
+// ||, ==, and !=. Parenthesized and literal expressions are also handled.
 func evalCondition(expr ast.Expr, defines map[string]bool) bool {
 	switch e := expr.(type) {
 

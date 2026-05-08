@@ -1,8 +1,12 @@
 package ast
 
+// IsBuiltinType reports whether name is a WGSL built-in type identifier.
+// It returns true for scalar types, vector and matrix types, texture types,
+// sampler types, and other standard predeclared types defined by the WGSL
+// specification.
 func IsBuiltinType(name string) bool {
 	switch name {
-	case "array", "atomic", "bool",
+	case "array", "atomic", "bitcast", "bool",
 		"f16", "f32", "i32", "u32",
 		"mat2x2", "mat2x3", "mat2x4",
 		"mat3x2", "mat3x3", "mat3x4",

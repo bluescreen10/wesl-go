@@ -193,6 +193,7 @@ var operators = map[string]tokenType{
 	"/":   tokenSlash,
 	"%":   tokenPercent,
 	"!":   tokenBang,
+	"~":   tokenTilde,
 	"=":   tokenEqual,
 	"+=":  tokenPlusEq,
 	"-=":  tokenMinusEq,
@@ -320,6 +321,9 @@ func lexDecl(l *lexer) stateFn {
 	switch r := l.next(); {
 	case r == eof:
 		return l.emit(tokenEOF)
+	case r == '.' && isNumber(l.peek()):
+		l.backup()
+		return lexNumber
 	case isPunctuation(r):
 		return l.emit(punctuation[r])
 	case isSpace(r):

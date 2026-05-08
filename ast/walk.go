@@ -2,6 +2,10 @@ package ast
 
 import "reflect"
 
+// Walk performs a depth-first traversal of the AST rooted at n, calling fn
+// on each node before descending into its children. If fn returns false for a
+// node, Walk does not visit that node's children. Nil pointer nodes are
+// silently skipped.
 func Walk(n Node, fn func(Node) bool) {
 	if v := reflect.ValueOf(n); v.Kind() == reflect.Pointer && v.IsNil() {
 		return
@@ -48,15 +52,27 @@ func Walk(n Node, fn func(Node) bool) {
 	case *FuncParam:
 		WalkList(n.Attrs, fn)
 		Walk(n.Type, fn)
+	case *IfAttrParam:
+		Walk(n.Cond, fn)
+		Walk(n.Then, fn)
+		Walk(n.Else, fn)
 	case *StructMember:
 		WalkList(n.Attrs, fn)
 		Walk(n.Type, fn)
+	case *IfAttrStructMember:
+		Walk(n.Cond, fn)
+		Walk(n.Then, fn)
+		Walk(n.Else, fn)
 
 	// Clauses
 	case *CaseClause:
 		WalkList(n.Attrs, fn)
 		WalkList(n.Selectors, fn)
 		Walk(n.Body, fn)
+	case *IfAttrClause:
+		Walk(n.Cond, fn)
+		Walk(n.Then, fn)
+		Walk(n.Else, fn)
 
 	// Stmt
 	case *AssignmentStmt:
@@ -96,26 +112,15 @@ func Walk(n Node, fn func(Node) bool) {
 	case *IfStmt:
 		WalkList(n.Attrs, fn)
 		Walk(n.Cond, fn)
-		if n.Then != nil {
-			Walk(n.Then, fn)
-		}
-		if n.ElseIf != nil {
-			Walk(n.ElseIf, fn)
-		}
-		if n.Else != nil {
-			Walk(n.Else, fn)
-		}
+		Walk(n.Then, fn)
+
+		Walk(n.ElseIf, fn)
+		Walk(n.Else, fn)
 	case *ForStmt:
 		WalkList(n.Attrs, fn)
-		if n.Init != nil {
-			Walk(n.Init, fn)
-		}
-		if n.Cond != nil {
-			Walk(n.Cond, fn)
-		}
-		if n.Update != nil {
-			Walk(n.Update, fn)
-		}
+		Walk(n.Init, fn)
+		Walk(n.Cond, fn)
+		Walk(n.Update, fn)
 		Walk(n.Body, fn)
 	case *WhileStmt:
 		WalkList(n.Attrs, fn)
@@ -124,9 +129,13 @@ func Walk(n Node, fn func(Node) bool) {
 	case *LoopStmt:
 		WalkList(n.Attrs, fn)
 		Walk(n.Body, fn)
+	case *ContinueStmt:
+		WalkList(n.Attrs, fn)
 	case *ContinuingStmt:
 		WalkList(n.Attrs, fn)
 		Walk(n.Body, fn)
+	case *DiscardStmt:
+		WalkList(n.Attrs, fn)
 	case *SwitchStmt:
 		WalkList(n.Attrs, fn)
 		Walk(n.Expr, fn)
@@ -162,6 +171,8 @@ func Walk(n Node, fn func(Node) bool) {
 	}
 }
 
+// WalkList calls Walk for each element in items, passing fn to each call.
+// It is a convenience wrapper for visiting a homogeneous slice of nodes.
 func WalkList[T Node](items []T, fn func(Node) bool) {
 	for _, i := range items {
 		Walk(i, fn)
