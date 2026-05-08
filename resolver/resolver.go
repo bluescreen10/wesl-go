@@ -107,7 +107,8 @@ func (r *Resolver) renameSymbols(root *module) {
 	for _, filename := range r.order {
 		m := r.resolved[filename]
 		for ident := range m.renames {
-			ident.Val = r.applyRename(m, ident.Val, names, root.filename)
+			ident.Val = r.applyRename(m, ident, names, root.filename)
+			ident.Path = nil
 		}
 	}
 }
@@ -227,19 +228,16 @@ func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 			return false
 
 		case *ast.TypeSpecifier:
-			// Refs need renaming
-			if r.resolveName(mod, n.Name.Val, scope) {
+			if r.resolveName(mod, n.Name, scope) {
 				mod.renames[n.Name] = true
 			}
-
 			for _, arg := range n.TemplateArgs {
 				ast.Walk(arg, walk)
 			}
 			return false
 
 		case *ast.Ident:
-			// Refs need renaming
-			if r.resolveName(mod, n.Val, scope) {
+			if r.resolveName(mod, n, scope) {
 				mod.renames[n] = true
 			}
 		}
@@ -258,51 +256,17 @@ func (r *Resolver) lookupImportFile(mod *module, i importEntry) string {
 	return r.lookupPath(append(i.path, i.sym), mod.filename)
 }
 
-// resolveName marks name as used in mod, loading external modules as needed,
+// resolveName marks ident as used in mod, loading external modules as needed,
 // and recurses into the declaration's own dependencies. Handles both plain
 // names and inline qualified references like "package::foo::MyType".
 // The used map acts as a cycle guard so mutual references terminate.
-func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) bool {
-	// Do nothing for empty or locally defined symbols
-	if name == "" || scope.has(name) {
+func (r *Resolver) resolveName(mod *module, ident *ast.Ident, scope *scopeStack) bool {
+	if ident == nil || ident.Val == "" {
 		return false
 	}
 
-	// Look for module symbol table
-	if d, ok := mod.symbols[name]; ok {
-		if !mod.used[name] {
-			r.resolveRef(mod, d)
-		}
-		return true
-	}
-
-	// Do nothing for built-ins
-	if isBuiltinType(name) {
-		return false
-	}
-
-	// Look for imported symbols
-	if i, ok := mod.imports[name]; ok {
-		filename := r.lookupImportFile(mod, i)
-		m := r.loadModule(filename)
-
-		i.filename = filename
-		mod.imports[name] = i
-
-		if m != nil && !m.used[i.sym] {
-			if d := m.symbols[i.sym]; d != nil {
-				r.resolveRef(m, d)
-			} else {
-				panic("symbol not found")
-			}
-		}
-
-		return true
-	}
-
-	// Look for fully qualified names
-	if strings.Contains(name, "::") {
-		filename, sym := r.resolveQualifiedName(mod, name, mod.filename)
+	if len(ident.Path) > 0 {
+		filename, sym := r.resolveQualifiedName(mod, ident)
 		if filename == "" {
 			return false
 		}
@@ -317,16 +281,49 @@ func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) bool
 		return true
 	}
 
+	name := ident.Val
+	if scope.has(name) {
+		return false
+	}
+
+	if d, ok := mod.symbols[name]; ok {
+		if !mod.used[name] {
+			r.resolveRef(mod, d)
+		}
+		return true
+	}
+
+	if isBuiltinType(name) {
+		return false
+	}
+
+	if i, ok := mod.imports[name]; ok {
+		filename := r.lookupImportFile(mod, i)
+		m := r.loadModule(filename)
+
+		i.filename = filename
+		mod.imports[name] = i
+
+		if m != nil && !m.used[i.sym] {
+			if d := m.symbols[i.sym]; d != nil {
+				r.resolveRef(m, d)
+			} else {
+				panic("symbol not found")
+			}
+		}
+		return true
+	}
+
 	return false
 }
 
 // applyRename computes the output name for an ident whose original value is name.
 // Called during the apply pass; scope filtering has already been done at record time.
-func (r *Resolver) applyRename(mod *module, name string, names map[fileSymbol]string, rootFilename string) string {
-	if strings.Contains(name, "::") {
-		filename, sym := r.resolveQualifiedName(mod, name, mod.filename)
+func (r *Resolver) applyRename(mod *module, ident *ast.Ident, names map[fileSymbol]string, rootFilename string) string {
+	if len(ident.Path) > 0 {
+		filename, sym := r.resolveQualifiedName(mod, ident)
 		if filename == "" {
-			return name
+			return ident.Val
 		}
 		if filename == rootFilename {
 			return sym
@@ -334,7 +331,7 @@ func (r *Resolver) applyRename(mod *module, name string, names map[fileSymbol]st
 		return r.nameFor(filename, sym, names)
 	}
 
-	// Module symbols take precedence over builtins.
+	name := ident.Val
 	if _, ok := mod.symbols[name]; ok {
 		if mod.filename == rootFilename {
 			return name
@@ -379,23 +376,22 @@ func (r *Resolver) nameTaken(name string, names map[fileSymbol]string) bool {
 	return false
 }
 
-// resolveQualifiedName resolves an inline qualified name like "foo::bar" or
-// "package::file::sym" to (filename, sym) using the module map or path resolution.
-func (r *Resolver) resolveQualifiedName(mod *module, name string, sourceFilename string) (string, string) {
-	parts := strings.Split(name, "::")
-	sym := parts[len(parts)-1]
-	root := parts[0]
+// resolveQualifiedName resolves a qualified ident (Path is non-empty) to (filename, sym).
+func (r *Resolver) resolveQualifiedName(mod *module, ident *ast.Ident) (string, string) {
+	sym := ident.Val
+	root := ident.Path[0]
+	rest := ident.Path[1:]
 
 	if entry, ok := mod.imports[root]; ok {
-		p := append(entry.path, parts[1:len(parts)-1]...)
-		if filename := r.lookupPath(p, sourceFilename); filename != "" {
+		p := append(append([]string{}, entry.path...), rest...)
+		if filename := r.lookupPath(p, mod.filename); filename != "" {
 			return filename, sym
 		}
 		// Fallback: the import alias may point to a module file whose name
 		// is entry.sym (e.g. import package::dir::modname → file "dir/modname").
-		return r.lookupPath(append(p, entry.sym), sourceFilename), sym
+		return r.lookupPath(append(p, entry.sym), mod.filename), sym
 	}
-	return r.lookupPath(parts[:len(parts)-1], sourceFilename), sym
+	return r.lookupPath(ident.Path, mod.filename), sym
 }
 
 func (r *Resolver) lookupFile(segs []string) string {

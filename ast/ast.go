@@ -394,7 +394,8 @@ type (
 
 	// Ident
 	Ident struct {
-		Val string
+		Path []string // nil for simple names; leading segments for qualified names (e.g. ["package","foo"] in package::foo::bar)
+		Val  string   // final symbol (e.g. "bar"), or full name for simple idents
 	}
 
 	// Index

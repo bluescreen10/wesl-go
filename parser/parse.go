@@ -1107,30 +1107,30 @@ func (p *parser) parsePrimaryExpr() ast.Expr {
 		p.expect(tokenRParen)
 		return &ast.ParenExpr{Inner: inner}
 	case tokenPackage, tokenSuper:
-		ident := tok.val
+		segs := []string{tok.val}
 		p.expect(tokenColonColon)
 		for p.at(tokenIdent) {
-			tok := p.next()
-			ident += "::" + tok.val
+			segs = append(segs, p.next().val)
 			p.accept(tokenColonColon)
 		}
+		qualified := &ast.Ident{Path: segs[:len(segs)-1], Val: segs[len(segs)-1]}
 		if p.at(tokenLParen) {
-			return &ast.CallExpr{Callee: &ast.Ident{Val: ident}, Args: p.parseArgumentExpressionList()}
+			return &ast.CallExpr{Callee: qualified, Args: p.parseArgumentExpressionList()}
 		}
-		return &ast.Ident{Val: ident}
+		return qualified
 
 	case tokenIdent:
-		ident := tok.val
+		segs := []string{tok.val}
 		for p.at(tokenColonColon) {
 			p.next() // consume ::
-			seg := p.expect(tokenIdent)
-			ident += "::" + seg.val
+			segs = append(segs, p.expect(tokenIdent).val)
 		}
-		if ident != tok.val {
+		if len(segs) > 1 {
+			qualified := &ast.Ident{Path: segs[:len(segs)-1], Val: segs[len(segs)-1]}
 			if p.at(tokenLParen) {
-				return &ast.CallExpr{Callee: &ast.Ident{Val: ident}, Args: p.parseArgumentExpressionList()}
+				return &ast.CallExpr{Callee: qualified, Args: p.parseArgumentExpressionList()}
 			}
-			return &ast.Ident{Val: ident}
+			return qualified
 		}
 
 		if isTemplateableIdent(tok.val) && p.at(tokenLAngle) {

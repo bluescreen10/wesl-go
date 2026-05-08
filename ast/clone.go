@@ -336,7 +336,7 @@ func (n *Ident) Clone() *Ident {
 	if n == nil {
 		return nil
 	}
-	return &Ident{Val: n.Val}
+	return &Ident{Path: slices.Clone(n.Path), Val: n.Val}
 }
 
 func (n *IndexExpr) Clone() *IndexExpr {

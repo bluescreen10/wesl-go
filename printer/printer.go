@@ -393,6 +393,10 @@ func (p *printer) printStmt(s ast.Stmt) {
 }
 
 func (p *printer) printIdent(i *ast.Ident) {
+	if len(i.Path) > 0 {
+		p.writeString(strings.Join(i.Path, DCOLON))
+		p.writeString(DCOLON)
+	}
 	p.writeString(i.Val)
 }
 
