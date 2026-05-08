@@ -11,20 +11,20 @@ import (
 
 // fileSymbol uniquely identifies a symbol within a specific source file.
 type fileSymbol struct {
-	file string
-	sym  string
+	filename string
+	sym      string
 }
 
 // importEntry is one explicit import in a module's import list.
 type importEntry struct {
-	path []string
-	sym  string
-	file string
+	path     []string
+	sym      string
+	filename string
 }
 
 type module struct {
-	filePath     string
-	file         *ast.File
+	filename string
+	file     *ast.File
 	imports      map[string]importEntry // alias → import info
 	symbols      map[string]ast.Decl    // local symbol table
 	used         map[string]bool        // symbols marked as used
@@ -77,8 +77,8 @@ func (r *Resolver) emitFile(root *module) *ast.File {
 	decls := root.file.Decls
 
 	// Emit imported modules in load order (index 0 is root, skip it).
-	for _, filePath := range r.order[1:] {
-		m := r.resolved[filePath]
+	for _, filename := range r.order[1:] {
+		m := r.resolved[filename]
 
 		// ConstAssertStmts have no name and are always emitted.
 		for _, d := range m.constAsserts {
@@ -100,14 +100,14 @@ func (r *Resolver) renameSymbols(root *module) {
 	// the same name get a numeric suffix instead of colliding.
 	names := make(map[fileSymbol]string)
 	for n := range root.symbols {
-		names[fileSymbol{root.filePath, n}] = n
+		names[fileSymbol{root.filename, n}] = n
 	}
 
 	// rename refs
-	for _, filePath := range r.order {
-		m := r.resolved[filePath]
+	for _, filename := range r.order {
+		m := r.resolved[filename]
 		for ident := range m.renames {
-			ident.Val = r.applyRename(m, ident.Val, names, root.filePath)
+			ident.Val = r.applyRename(m, ident.Val, names, root.filename)
 		}
 	}
 }
@@ -124,7 +124,7 @@ func (r *Resolver) loadModule(filename string) *module {
 
 	file = r.resolveConditionals(file.Clone())
 	mod := &module{
-		filePath: filename,
+		filename: filename,
 		file:     file,
 		used:     make(map[string]bool),
 		symbols:  make(map[string]ast.Decl),
@@ -249,13 +249,13 @@ func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 	ast.Walk(root, walk)
 }
 
-// lookupImportFile resolves the file path for an importEntry relative to mod.
+// lookupImportFile resolves the filename for an importEntry relative to mod.
 func (r *Resolver) lookupImportFile(mod *module, i importEntry) string {
-	if file := r.lookupPath(i.path, mod.filePath); file != "" {
-		return file
+	if filename := r.lookupPath(i.path, mod.filename); filename != "" {
+		return filename
 	}
 	// Fallback: sym may be the last path segment of a module file path.
-	return r.lookupPath(append(i.path, i.sym), mod.filePath)
+	return r.lookupPath(append(i.path, i.sym), mod.filename)
 }
 
 // resolveName marks name as used in mod, loading external modules as needed,
@@ -283,10 +283,10 @@ func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) bool
 
 	// Look for imported symbols
 	if i, ok := mod.imports[name]; ok {
-		file := r.lookupImportFile(mod, i)
-		m := r.loadModule(file)
+		filename := r.lookupImportFile(mod, i)
+		m := r.loadModule(filename)
 
-		i.file = file
+		i.filename = filename
 		mod.imports[name] = i
 
 		if m != nil && !m.used[i.sym] {
@@ -302,11 +302,11 @@ func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) bool
 
 	// Look for fully qualified names
 	if strings.Contains(name, "::") {
-		filePath, sym := r.resolveQualifiedName(mod, name, mod.filePath)
-		if filePath == "" {
+		filename, sym := r.resolveQualifiedName(mod, name, mod.filename)
+		if filename == "" {
 			return false
 		}
-		m := r.loadModule(filePath)
+		m := r.loadModule(filename)
 		if m != nil && !m.used[sym] {
 			if d := m.symbols[sym]; d != nil {
 				r.resolveRef(m, d)
@@ -322,46 +322,46 @@ func (r *Resolver) resolveName(mod *module, name string, scope *scopeStack) bool
 
 // applyRename computes the output name for an ident whose original value is name.
 // Called during the apply pass; scope filtering has already been done at record time.
-func (r *Resolver) applyRename(mod *module, name string, names map[fileSymbol]string, rootFile string) string {
+func (r *Resolver) applyRename(mod *module, name string, names map[fileSymbol]string, rootFilename string) string {
 	if strings.Contains(name, "::") {
-		filePath, sym := r.resolveQualifiedName(mod, name, mod.filePath)
-		if filePath == "" {
+		filename, sym := r.resolveQualifiedName(mod, name, mod.filename)
+		if filename == "" {
 			return name
 		}
-		if filePath == rootFile {
+		if filename == rootFilename {
 			return sym
 		}
-		return r.nameFor(filePath, sym, names)
+		return r.nameFor(filename, sym, names)
 	}
 
 	// Module symbols take precedence over builtins.
 	if _, ok := mod.symbols[name]; ok {
-		if mod.filePath == rootFile {
+		if mod.filename == rootFilename {
 			return name
 		}
-		return r.nameFor(mod.filePath, name, names)
+		return r.nameFor(mod.filename, name, names)
 	}
 
 	if i, ok := mod.imports[name]; ok {
-		if i.file == "" {
+		if i.filename == "" {
 			return name
 		}
-		if i.file == rootFile {
+		if i.filename == rootFilename {
 			return i.sym
 		}
-		return r.nameFor(i.file, i.sym, names)
+		return r.nameFor(i.filename, i.sym, names)
 	}
 	return name
 }
 
 // nameFor returns the collision-free output name for (file, sym), allocating
 // one on first call and caching it for consistent reuse.
-func (r *Resolver) nameFor(file, sym string, names map[fileSymbol]string) string {
-	key := fileSymbol{file, sym}
+func (r *Resolver) nameFor(filename, sym string, names map[fileSymbol]string) string {
+	key := fileSymbol{filename, sym}
 	if n, ok := names[key]; ok {
 		return n
 	}
-	base := mangleName(file, sym)
+	base := mangleName(filename, sym)
 	n := base
 	for i := 0; r.nameTaken(n, names); i++ {
 		n = fmt.Sprintf("%s_%d", base, i)
@@ -380,22 +380,22 @@ func (r *Resolver) nameTaken(name string, names map[fileSymbol]string) bool {
 }
 
 // resolveQualifiedName resolves an inline qualified name like "foo::bar" or
-// "package::file::sym" to (filePath, sym) using the module map or path resolution.
-func (r *Resolver) resolveQualifiedName(mod *module, name string, sourceFile string) (string, string) {
+// "package::file::sym" to (filename, sym) using the module map or path resolution.
+func (r *Resolver) resolveQualifiedName(mod *module, name string, sourceFilename string) (string, string) {
 	parts := strings.Split(name, "::")
 	sym := parts[len(parts)-1]
 	root := parts[0]
 
 	if entry, ok := mod.imports[root]; ok {
 		p := append(entry.path, parts[1:len(parts)-1]...)
-		if file := r.lookupPath(p, sourceFile); file != "" {
-			return file, sym
+		if filename := r.lookupPath(p, sourceFilename); filename != "" {
+			return filename, sym
 		}
 		// Fallback: the import alias may point to a module file whose name
 		// is entry.sym (e.g. import package::dir::modname → file "dir/modname").
-		return r.lookupPath(append(p, entry.sym), sourceFile), sym
+		return r.lookupPath(append(p, entry.sym), sourceFilename), sym
 	}
-	return r.lookupPath(parts[:len(parts)-1], sourceFile), sym
+	return r.lookupPath(parts[:len(parts)-1], sourceFilename), sym
 }
 
 func (r *Resolver) lookupFile(segs []string) string {
@@ -409,9 +409,9 @@ func (r *Resolver) lookupFile(segs []string) string {
 }
 
 // lookupPath resolves an import prefix (containing package/super/path segments)
-// relative to sourceFile and returns the matching file path, or "" if not found.
-func (r *Resolver) lookupPath(prefix []string, sourceFile string) string {
-	dir := path.Dir(sourceFile)
+// relative to sourceFilename and returns the matching filename, or "" if not found.
+func (r *Resolver) lookupPath(prefix []string, sourceFilename string) string {
+	dir := path.Dir(sourceFilename)
 	var segs []string
 	for _, p := range prefix {
 		switch p {
@@ -504,23 +504,9 @@ func getNodeName(d ast.Node) *ast.Ident {
 	}
 }
 
-func setNodeName(d ast.Decl, name string) {
-	switch d := d.(type) {
-	case *ast.FuncDecl:
-		d.Name.Val = name
-	case *ast.StructDecl:
-		d.Name.Val = name
-	case *ast.ValStmt:
-		d.Name.Val = name
-	case *ast.VarStmt:
-		d.Name.Val = name
-	case *ast.TypeAliasDecl:
-		d.Name.Val = name
-	}
-}
 
-func mangleName(file, sym string) string {
-	return "package_" + strings.ReplaceAll(file, "/", "_") + "_" + sym
+func mangleName(filename, sym string) string {
+	return "package_" + strings.ReplaceAll(filename, "/", "_") + "_" + sym
 }
 
 func pickBranch[T ast.Node](cond ast.Expr, then, els T, defines map[string]bool) T {
