@@ -128,6 +128,7 @@ func Walk(n Node, fn func(Node) bool) {
 		Walk(n.Body, fn)
 	case *LoopStmt:
 		WalkList(n.Attrs, fn)
+		WalkList(n.BodyAttrs, fn)
 		Walk(n.Body, fn)
 	case *ContinueStmt:
 		WalkList(n.Attrs, fn)
@@ -140,6 +141,10 @@ func Walk(n Node, fn func(Node) bool) {
 		WalkList(n.Attrs, fn)
 		Walk(n.Expr, fn)
 		WalkList(n.Clauses, fn)
+
+	// Attribute
+	case *Attribute:
+		WalkList(n.Args, fn)
 
 	// TypeSpecifier
 	case *TypeSpecifier:

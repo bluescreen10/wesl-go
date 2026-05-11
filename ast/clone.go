@@ -521,7 +521,7 @@ func (n *CaseClause) Clone() *CaseClause {
 	}
 	return &CaseClause{
 		Attrs:     CloneList(n.Attrs),
-		Selectors: slices.Clone(n.Selectors),
+		Selectors: CloneListFunc(n.Selectors, CloneExpr),
 		Body:      n.Body.Clone(),
 	}
 }
@@ -715,8 +715,13 @@ func CloneList[T Cloner[T]](items []T) []T {
 
 // CloneListFunc returns a new slice built by applying fn to every element of
 // items. fn is typically one of the CloneDecl/CloneStmt/CloneExpr helpers or
-// an inline closure.
+// an inline closure. A nil items slice is returned as nil, preserving the
+// nil-vs-empty distinction used by some AST nodes (e.g. CaseClause.Selectors
+// where nil signals the default clause).
 func CloneListFunc[T any](items []T, fn func(T) T) []T {
+	if items == nil {
+		return nil
+	}
 	out := make([]T, 0, len(items))
 	for _, item := range items {
 		out = append(out, fn(item))

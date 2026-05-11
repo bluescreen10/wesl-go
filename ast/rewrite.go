@@ -41,6 +41,7 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 	case *FuncDecl:
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Params = RewriteList(r.Params, fn)
+		r.ReturnAttrs = RewriteList(r.ReturnAttrs, fn)
 		r.ReturnType = wrap[*TypeSpecifier](Rewrite(r.ReturnType, fn))
 		r.Body = wrap[*BlockStmt](Rewrite(r.Body, fn))
 	case *TypeAliasDecl:
@@ -133,6 +134,7 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 		r.Body = wrap[*BlockStmt](Rewrite(r.Body, fn))
 	case *LoopStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
+		r.BodyAttrs = RewriteList(r.BodyAttrs, fn)
 		r.Body = wrap[*BlockStmt](Rewrite(r.Body, fn))
 	case *ContinueStmt:
 		r.Attrs = RewriteList(r.Attrs, fn)
@@ -145,6 +147,10 @@ func Rewrite(n Node, fn func(Node) Node) Node {
 		r.Attrs = RewriteList(r.Attrs, fn)
 		r.Expr = wrap[Expr](Rewrite(r.Expr, fn))
 		r.Clauses = RewriteList(r.Clauses, fn)
+
+	// Attribute
+	case *Attribute:
+		r.Args = RewriteList(r.Args, fn)
 
 	// Expr
 	case *BinaryExpr:
