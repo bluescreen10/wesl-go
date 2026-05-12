@@ -24,14 +24,14 @@ type importEntry struct {
 
 // module holds all resolver state for a single source file.
 type module struct {
-	filename     string                    // path of the source file this module represents
-	file         *ast.File                 // AST of the source file (possibly rewritten)
-	imports      map[string]importEntry    // alias → import info for all imports in this file
-	symbols      map[string]ast.Decl       // local symbol table mapping name → declaration
-	used         map[string]bool           // symbols reachable from the entry point
-	order        []string                  // names in the order they were first marked used
-	renames      map[*ast.Ident]bool       // idents that must be renamed during the apply pass
-	constAsserts []*ast.ConstAssertStmt    // const_assert statements collected from this module
+	filename     string                 // path of the source file this module represents
+	file         *ast.File              // AST of the source file (possibly rewritten)
+	imports      map[string]importEntry // alias → import info for all imports in this file
+	symbols      map[string]ast.Decl    // local symbol table mapping name → declaration
+	used         map[string]bool        // symbols reachable from the entry point
+	order        []string               // names in the order they were first marked used
+	renames      map[*ast.Ident]bool    // idents that must be renamed during the apply pass
+	constAsserts []*ast.ConstAssertStmt // const_assert statements collected from this module
 }
 
 // Resolver resolves imports and symbol references across a set of WESL source
@@ -243,6 +243,7 @@ func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 
 		case *ast.VarStmt:
 			scope.add(n.Name.Val)
+			ast.WalkList(n.Attrs, walk)
 			ast.Walk(n.Type, walk)
 			ast.WalkList(n.TemplateArgs, walk)
 			ast.Walk(n.Init, walk)
@@ -250,6 +251,7 @@ func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 
 		case *ast.ValStmt:
 			scope.add(n.Name.Val)
+			ast.WalkList(n.Attrs, walk)
 			ast.Walk(n.Type, walk)
 			ast.Walk(n.Init, walk)
 			return false
