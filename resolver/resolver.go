@@ -243,18 +243,9 @@ func (r *Resolver) resolveRef(mod *module, root ast.Node) {
 
 		case *ast.VarStmt:
 			scope.add(n.Name.Val)
-			ast.WalkList(n.Attrs, walk)
-			ast.Walk(n.Type, walk)
-			ast.WalkList(n.TemplateArgs, walk)
-			ast.Walk(n.Init, walk)
-			return false
 
 		case *ast.ValStmt:
 			scope.add(n.Name.Val)
-			ast.WalkList(n.Attrs, walk)
-			ast.Walk(n.Type, walk)
-			ast.Walk(n.Init, walk)
-			return false
 
 		case *ast.BlockStmt:
 			scope.push()
