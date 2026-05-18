@@ -1200,7 +1200,7 @@ func (p *parser) parseTemplateList() []ast.Expr {
 //     for templateDepth to suppress '<' for that nested parse.
 func (p *parser) parseTemplateArg() ast.Expr {
 	if p.at(tokenIdent) {
-		return p.parseTypeSpecifier().AsExpr()
+		return p.parseTypeSpecifier()
 	}
 	return p.parseExpression()
 }

@@ -508,14 +508,5 @@ type File struct {
 
 func (*Attribute) node()     {}
 func (*TypeSpecifier) node() {}
+func (*TypeSpecifier) exprNode() {}
 func (*File) node()          {}
-
-// AsExpr converts a TypeSpecifier to an Expr so it can appear in positions
-// that accept an expression. A bare type name is returned as an Ident; a
-// parameterized type is returned as a CallExpr with template arguments.
-func (ts TypeSpecifier) AsExpr() Expr {
-	if len(ts.TemplateArgs) == 0 {
-		return ts.Name
-	}
-	return &CallExpr{Callee: ts.Name, TemplateArgs: ts.TemplateArgs}
-}

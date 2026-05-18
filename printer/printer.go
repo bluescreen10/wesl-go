@@ -272,6 +272,8 @@ func (p *printer) printExpr(e ast.Expr) {
 		p.writeBytes(LPAREN)
 		p.printExpr(e.Inner)
 		p.writeBytes(RPAREN)
+	case *ast.TypeSpecifier:
+		p.printTypeSpecifier(e)
 	case *ast.UnaryExpr:
 		p.writeString(e.Op)
 		p.writeBytes(WHITESPACE)
